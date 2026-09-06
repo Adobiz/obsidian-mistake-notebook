@@ -1,0 +1,122 @@
+/* =============================================================
+   Mistake Notebook (错题本) 插件样式
+   命名约定：所有类以 .mt- 前缀，避免污染其他插件/主题。
+   ============================================================= */
+
+/* ---------- 答案遮罩：通用 ---------- */
+.mt-answer-callout {
+  position: relative;
+  cursor: pointer;
+}
+
+.mt-answer-callout .callout-content {
+  transition:
+    filter 0.18s ease,
+    opacity 0.18s ease;
+}
+
+/* 遮罩提示 / 重新遮住 按钮（放在 callout 标题行） */
+.mt-mask-hint,
+.mt-remask-btn {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 0 8px;
+  font-size: 0.75em;
+  line-height: 1.8;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.mt-mask-hint:hover,
+.mt-remask-btn:hover {
+  color: var(--text-normal);
+}
+
+/* 遮罩态显示提示；揭晓态显示“重新遮住” */
+.mt-answer-callout:not(.is-revealed) .mt-remask-btn,
+.mt-answer-callout.is-revealed .mt-mask-hint {
+  display: none;
+}
+
+/* ---------- 风格：模糊 ---------- */
+.mt-answer-callout.mt-mask-blur:not(.is-revealed) .callout-content {
+  filter: blur(9px);
+  user-select: none;
+}
+
+/* ---------- 风格：纯白（覆盖层，同时遮文字与图片） ---------- */
+.mt-answer-callout.mt-mask-white:not(.is-revealed) .callout-content {
+  position: relative;
+  user-select: none;
+}
+
+.mt-answer-callout.mt-mask-white:not(.is-revealed) .callout-content > * {
+  pointer-events: none;
+}
+
+.mt-answer-callout.mt-mask-white:not(.is-revealed) .callout-content::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--background-primary);
+  border-radius: var(--radius-m);
+}
+
+/* ---------- 占位（已拆分）答案块 ---------- */
+.mt-answer-placeholder .callout-content {
+  cursor: auto;
+}
+
+/* ---------- 录入弹窗 ---------- */
+.mistake-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.mistake-modal .mistake-field {
+  margin-bottom: 12px;
+}
+
+.mistake-modal label.mistake-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+.mistake-modal textarea {
+  width: 100%;
+  min-height: 90px;
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+}
+
+.mistake-modal .mistake-split-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.9em;
+}
+
+.mistake-modal .mistake-split-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.mistake-modal .mistake-answer-meta {
+  font-size: 0.75em;
+  color: var(--text-faint);
+}
+
+.mistake-modal .mistake-error {
+  color: var(--text-error);
+  font-size: 0.85em;
+  margin-bottom: 8px;
+}

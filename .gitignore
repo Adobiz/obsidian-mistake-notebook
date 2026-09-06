@@ -1,0 +1,13 @@
+# --- Obsidian plugin build output ---
+main.js
+*.map
+
+# --- Node ---
+node_modules/
+coverage/
+
+# --- OS / editor ---
+.DS_Store
+*.log
+.idea/
+.vscode/
