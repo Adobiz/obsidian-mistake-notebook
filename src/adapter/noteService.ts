@@ -10,24 +10,25 @@
 
 import { TFile } from "obsidian";
 import type { App } from "obsidian";
-import { findAnswerBlock, toCalloutLines } from "../domain/answerBlock";
+import { findAnswerBlock } from "../domain/answerBlock";
 import {
   buildAnswerPageSource,
+  buildAnswerSection,
+  buildQuestionSection,
   buildQuestionSource,
   makeMistakeFrontmatter,
 } from "../domain/templates";
 import {
+  buildAnswerBase,
   buildAnswerPath,
   buildFileBase,
   buildQuestionPath,
   generateMistakeId,
+  resolveAnswerDir,
+  uniquifyFileBase,
 } from "../domain/naming";
 import { parseMistakeFrontmatter } from "../domain/frontmatter";
-import {
-  buildPlaceholderBlock,
-  replaceAnswerBlockWithPlaceholder,
-  shouldSplit,
-} from "../domain/splitRules";
+import { replaceAnswerBlockWithPlaceholder, shouldSplit } from "../domain/splitRules";
 import type { MistakeSettings } from "../settings";
 import { toSplitRules } from "../settings";
 
@@ -89,8 +90,17 @@ export class MistakeNoteService {
     const settings = this.getSettings();
     const now = new Date();
     const id = generateMistakeId(now, params.subject);
-    const fileBase = buildFileBase(params.subject, params.topic, now);
+    let fileBase = buildFileBase(params.subject, params.topic, now);
     const createdAt = isoNow();
+
+    // 主干唯一化：同秒重复创建同主题错题时自动加 -2/-3（vault 存在性检查）
+    fileBase = uniquifyFileBase(
+      fileBase,
+      (candidate) =>
+        this.app.vault.getAbstractFileByPath(
+          buildQuestionPath(settings.questionsRoot, params.subject, candidate),
+        ) !== null,
+    );
 
     const fm = makeMistakeFrontmatter({
       id,
@@ -103,19 +113,25 @@ export class MistakeNoteService {
       tags: ["错题"],
     });
 
-    const answerSection = params.splitToPage
-      ? buildPlaceholderBlock(fileBase)
-      : `> [!answer] 答案\n${toCalloutLines(params.answer).join("\n")}`;
+    const answerSection = buildAnswerSection(
+      params.answer,
+      params.splitToPage,
+      buildAnswerBase(fileBase),
+    );
 
     const questionSource = buildQuestionSource(fm, {
       topic: params.topic,
       question: params.question,
       answerSection,
+      questionEmphasis: settings.autoQuestionEmphasis,
     });
 
     const questionPath = buildQuestionPath(settings.questionsRoot, params.subject, fileBase);
     const questionFolder = questionPath.slice(0, questionPath.lastIndexOf("/"));
     await this.ensureFolder(questionFolder);
+
+    // 先写题目，再写答案页；答案页失败则回滚题目，绝不留指向空答案页的孤儿
+    await this.app.vault.create(questionPath, questionSource);
 
     let answerPath: string | undefined;
     if (params.splitToPage) {
@@ -124,23 +140,87 @@ export class MistakeNoteService {
         questionFileBase: fileBase,
         answerContent: params.answer,
       });
-      answerPath = buildAnswerPath(settings.answersRoot, fileBase);
-      await this.ensureFolder(settings.answersRoot);
-      await this.app.vault.create(answerPath, answerSource);
+      // 答案页位置：跟随错题目录（可含子文件夹）或独立答案目录（历史约定）
+      const answerDir = resolveAnswerDir(
+        settings.answersFollowQuestions,
+        settings.answersRoot,
+        questionFolder,
+        settings.answersSubfolderWhenFollowing,
+      );
+      answerPath = buildAnswerPath(answerDir, fileBase);
+      await this.ensureFolder(answerDir);
+      try {
+        await this.app.vault.create(answerPath, answerSource);
+      } catch (err) {
+        const question = this.app.vault.getAbstractFileByPath(questionPath);
+        if (question !== null) await this.app.vault.delete(question);
+        throw err;
+      }
     }
 
-    await this.app.vault.create(questionPath, questionSource);
     return { questionPath, answerPath };
   }
 
-  /** 保存粘贴进录入框的图片，返回可嵌入的文件名（![[name]]）。 */
-  async savePastedImage(data: ArrayBuffer, mimeType: string): Promise<string> {
+  /**
+   * "在当前位置插入"：不新建笔记，把一道错题就地写进宿主笔记（任意目录）。
+   * 宿主笔记的 frontmatter 一概不动；错题身份（mt-answer-of、返回链接的宿主名）
+   * 记录在拆分出的答案页上。返回需写入编辑器的源码块（题干可空 → 只插答案块）。
+   */
+  async buildInsertBlock(
+    params: CreateMistakeParams,
+    hostFile: TFile,
+  ): Promise<{ block: string; answerPath?: string }> {
     const settings = this.getSettings();
+    const now = new Date();
+    const id = generateMistakeId(now, params.subject);
+    const fileBase = buildFileBase(params.subject, params.topic, now);
+
+    let answerPath: string | undefined;
+    if (params.splitToPage) {
+      const answerDir = resolveAnswerDir(
+        settings.answersFollowQuestions,
+        settings.answersRoot,
+        hostFile.parent?.path ?? "",
+        settings.answersSubfolderWhenFollowing,
+      );
+      answerPath = buildAnswerPath(answerDir, fileBase);
+      await this.ensureFolder(answerDir);
+      await this.app.vault.create(
+        answerPath,
+        buildAnswerPageSource({
+          mtAnswerOf: id,
+          questionFileBase: hostFile.basename,
+          answerContent: params.answer,
+        }),
+      );
+    }
+
+    const answerSection = buildAnswerSection(
+      params.answer,
+      params.splitToPage,
+      buildAnswerBase(fileBase),
+    );
+    const question = params.question.trim();
+    const questionPart =
+      question === ""
+        ? []
+        : [settings.autoQuestionEmphasis ? buildQuestionSection(question) : question, ""];
+    const block = [...questionPart, answerSection, ""].join("\n");
+    return { block, answerPath };
+  }
+
+  /**
+   * 保存粘贴进录入框的图片，返回可嵌入的文件名（![[name]]）。
+   * 路径跟随用户在 Obsidian 里配置的附件目录——绝不能写点开头的隐藏目录，
+   * 那类目录不进 vault 索引，嵌入链接会是死链。
+   */
+  async savePastedImage(data: ArrayBuffer, mimeType: string, sourcePath = ""): Promise<string> {
     const ext = MIME_EXT[mimeType] ?? "png";
-    const folder = `${settings.questionsRoot}/.attachments`;
-    await this.ensureFolder(folder);
     const name = `mt-img-${Date.now()}-${rand()}.${ext}`;
-    await this.app.vault.createBinary(`${folder}/${name}`, data);
+    const path = await this.app.fileManager.getAvailablePathForAttachment(name, sourcePath);
+    const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+    await this.ensureFolder(dir);
+    await this.app.vault.createBinary(path, data);
     return name;
   }
 
@@ -170,17 +250,28 @@ export class MistakeNoteService {
     }
 
     const id = fm.id !== "" ? fm.id : generateMistakeId(new Date(), fm.subject);
-    const answerBasename = file.basename;
+    const questionBase = file.basename;
     const answerSource = buildAnswerPageSource({
       mtAnswerOf: id,
-      questionFileBase: answerBasename,
+      questionFileBase: questionBase,
       answerContent: block.content,
     });
-    const answerPath = buildAnswerPath(settings.answersRoot, answerBasename);
-    await this.ensureFolder(settings.answersRoot);
+    const questionDir = file.parent?.path ?? "";
+    const answerDir = resolveAnswerDir(
+      settings.answersFollowQuestions,
+      settings.answersRoot,
+      questionDir,
+      settings.answersSubfolderWhenFollowing,
+    );
+    const answerPath = buildAnswerPath(answerDir, questionBase);
+    await this.ensureFolder(answerDir);
     await this.app.vault.create(answerPath, answerSource);
 
-    const replaced = replaceAnswerBlockWithPlaceholder(source, block, answerBasename);
+    const replaced = replaceAnswerBlockWithPlaceholder(
+      source,
+      block,
+      buildAnswerBase(questionBase),
+    );
     await this.app.vault.process(file, () => replaced);
     await this.app.fileManager.processFrontMatter(file, (data) => {
       data["answerMode"] = "page";

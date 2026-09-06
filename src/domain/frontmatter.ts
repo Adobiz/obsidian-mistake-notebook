@@ -6,16 +6,10 @@
  * 已解析对象的**运行时校验**（用户手改、同步冲突会产生非法值，不能直接信任）。
  */
 
-import type {
-  AnswerMode,
-  AnswerPageFrontmatter,
-  MaskStyle,
-  MistakeFrontmatter,
-  MistakeStatus,
-} from "./types";
+import type { AnswerMode, MaskStyle, MistakeFrontmatter, MistakeStatus } from "./types";
 
 const ANSWER_MODES: readonly AnswerMode[] = ["inline", "page"];
-const MASK_STYLES: readonly MaskStyle[] = ["auto", "blur", "white", "mosaic", "frosted"];
+const MASK_STYLES: readonly MaskStyle[] = ["auto", "blur", "white", "mosaic", "black"];
 const STATUSES: readonly MistakeStatus[] = ["pending", "reviewing", "mastered", "archived"];
 
 function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value is T {
@@ -52,19 +46,6 @@ export function parseMistakeFrontmatter(raw: unknown): MistakeFrontmatter {
     status: isOneOf(obj["status"], STATUSES) ? obj["status"] : "pending",
     createdAt: strField(obj, "createdAt") ?? "",
     updatedAt: strField(obj, "updatedAt") ?? "",
-    tags: tags !== undefined && tags.length > 0 ? tags : undefined,
-  };
-}
-
-/** 校验答案页 frontmatter。 */
-export function parseAnswerPageFrontmatter(raw: unknown): AnswerPageFrontmatter {
-  const obj = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
-  const tags = Array.isArray(obj["tags"])
-    ? obj["tags"].filter((t): t is string => typeof t === "string")
-    : undefined;
-  return {
-    mtAnswerOf: strField(obj, "mt-answer-of", "") ?? "",
-    questionName: strField(obj, "questionName") ?? "",
     tags: tags !== undefined && tags.length > 0 ? tags : undefined,
   };
 }

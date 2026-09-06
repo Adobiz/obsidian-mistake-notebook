@@ -16,8 +16,46 @@ import { parseMistakeFrontmatter } from "../domain/frontmatter";
 import type { MaskStyle } from "../domain/types";
 import type { MistakeSettings } from "../settings";
 
-/** M1 已实现的遮罩风格；mosaic/frosted 留待后续里程碑。 */
-const IMPLEMENTED_MASK_STYLES: readonly MaskStyle[] = ["blur", "white"];
+/** 当前已实现的遮罩风格（mosaic 依赖下方注入的 #mt-pixelate SVG 滤镜）。 */
+const IMPLEMENTED_MASK_STYLES: readonly MaskStyle[] = ["blur", "white", "mosaic", "black"];
+
+/**
+ * mosaic 的像素化由 SVG 滤镜完成：feFlood 打一个 2x2 色点 → feComposite 裁进
+ * 8x8 网格 → feTile 平铺成点阵 → 对源图形做 "in" 蒙版 → feMorphology 膨胀成色块，
+ * 文字即被量化为 8px 像素块。滤镜定义由本插件注入 document.body 并幂等存在，
+ * 保证 styles.css 里 filter: url(#mt-pixelate) 的引用不悬空（引用悬空会 fail-open）。
+ */
+function ensurePixelateFilterDef(): void {
+  if (document.getElementById("mt-pixelate") !== null) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag: string): SVGElement => document.createElementNS(NS, tag);
+  const svg = el("svg");
+  svg.setAttribute("width", "0");
+  svg.setAttribute("height", "0");
+  svg.style.position = "absolute";
+  const filter = el("filter");
+  filter.id = "mt-pixelate";
+  const dot = el("feFlood");
+  dot.setAttribute("x", "4");
+  dot.setAttribute("y", "4");
+  dot.setAttribute("width", "2");
+  dot.setAttribute("height", "2");
+  const grid = el("feComposite");
+  grid.setAttribute("width", "8");
+  grid.setAttribute("height", "8");
+  const tile = el("feTile");
+  tile.setAttribute("result", "a");
+  const masked = el("feComposite");
+  masked.setAttribute("in", "SourceGraphic");
+  masked.setAttribute("in2", "a");
+  masked.setAttribute("operator", "in");
+  const dilate = el("feMorphology");
+  dilate.setAttribute("operator", "dilate");
+  dilate.setAttribute("radius", "4");
+  filter.append(dot, grid, tile, masked, dilate);
+  svg.append(filter);
+  document.body.appendChild(svg);
+}
 
 function resolveMaskStyle(fmStyle: MaskStyle, settings: MistakeSettings): MaskStyle {
   const style = fmStyle === "auto" ? settings.defaultMaskStyle : fmStyle;
@@ -43,6 +81,7 @@ function isPlaceholderCallout(callout: HTMLElement): boolean {
 
 export function createAnswerMaskPostProcessor(app: App, getSettings: () => MistakeSettings) {
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext): void => {
+    ensurePixelateFilterDef();
     const settings = getSettings();
     const file = app.vault.getAbstractFileByPath(ctx.sourcePath);
     const fm =

@@ -1,10 +1,10 @@
 {
   "id": "mistake-notebook",
   "name": "Mistake Notebook (错题本)",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "带答案遮罩（模糊/纯白）、点击揭晓与长答案自动拆分答案页的错题本",
-  "author": "wxc",
+  "description": "Mistake notebook: mask answers (blur/white/mosaic/black), click to reveal, auto-split long answers to a linked page, insert at cursor, question emphasis, minimal mode. Data stays in plain Markdown — no lock-in.",
+  "author": "Adobiz",
   "authorUrl": "",
   "isDesktopOnly": false,
   "fundingUrl": ""

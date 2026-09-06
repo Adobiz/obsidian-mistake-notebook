@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findAnswerBlock } from "./answerBlock";
+import { buildAnswerBase } from "./naming";
 import {
   DEFAULT_SPLIT_RULES,
   buildPlaceholderBlock,
@@ -93,5 +94,12 @@ describe("replaceAnswerBlockWithPlaceholder", () => {
     expect(block.isPlaceholderLinkOnly).toBe(true);
     expect(block.hasImage).toBe(false);
     expect(block.hasDisplayMath).toBe(false);
+  });
+
+  it("占位链接指向 buildAnswerBase 命名的答案页（与题目页不同名）", () => {
+    const questionBase = "函数单调性-数学-20250212-0805";
+    const placeholder = buildPlaceholderBlock(buildAnswerBase(questionBase));
+    expect(placeholder).toContain(`> [[${questionBase}-答案|查看完整答案 →]]`);
+    expect(placeholder).not.toContain(`[[${questionBase}|`);
   });
 });

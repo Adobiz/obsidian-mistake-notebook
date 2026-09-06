@@ -1,5 +1,6 @@
 # --- Obsidian plugin build output ---
 main.js
+main.css
 *.map
 
 # --- Node ---

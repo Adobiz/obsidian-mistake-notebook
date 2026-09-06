@@ -10,8 +10,8 @@ import type { MaskStyle } from "./domain/types";
 const MASK_STYLE_OPTIONS: Array<[MaskStyle, string]> = [
   ["blur", "模糊（Blur）"],
   ["white", "纯白（White）"],
-  ["mosaic", "马赛克（Mosaic，即将支持）"],
-  ["frosted", "雾面玻璃（Frosted，即将支持）"],
+  ["mosaic", "马赛克（Mosaic）"],
+  ["black", "纯黑（Black）"],
 ];
 
 export class MistakeSettingTab extends PluginSettingTab {
@@ -48,6 +48,36 @@ export class MistakeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("答案页跟随错题目录")
+      .setDesc(
+        "开启后，拆分出的答案页生成在错题笔记所在目录内（可再选是否建子文件夹）；" +
+          "关闭则使用上方答案页根目录。仅影响之后生成的答案页，不迁移已有文件",
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.answersFollowQuestions).onChange(async (v) => {
+          this.plugin.settings.answersFollowQuestions = v;
+          await this.plugin.saveSettings();
+          this.display(); // 重渲染，让子开关跟随主开关出现/消失
+        }),
+      );
+
+    // 子开关：仅主开关开启时显示并生效
+    if (this.plugin.settings.answersFollowQuestions) {
+      new Setting(containerEl)
+        .setName("在错题目录内创建答案文件夹")
+        .setDesc(
+          `开启后，答案页统一放入 错题目录/${this.plugin.settings.answersRoot}/ 子文件夹；` +
+            "关闭则与错题笔记同目录存放",
+        )
+        .addToggle((t) =>
+          t.setValue(this.plugin.settings.answersSubfolderWhenFollowing).onChange(async (v) => {
+            this.plugin.settings.answersSubfolderWhenFollowing = v;
+            await this.plugin.saveSettings();
+          }),
+        );
+    }
+
+    new Setting(containerEl)
       .setName("默认遮罩风格")
       .setDesc("答案块未单独指定风格时使用；单题可用 frontmatter 的 maskStyle 覆盖")
       .addDropdown((dd) => {
@@ -57,6 +87,47 @@ export class MistakeSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    new Setting(containerEl)
+      .setName("极简模式")
+      .setDesc(
+        "开启后录入错题只需题目与答案（学科等自动记为未分类，稍后可在笔记里补），" +
+          "界面隐藏属性面板与反链等杂项；用命令「切换极简模式」随时开关",
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.minimalMode).onChange(async (v) => {
+          this.plugin.settings.minimalMode = v;
+          await this.plugin.saveSettings();
+          this.plugin.applyMinimalMode();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("隐藏错题笔记的属性区")
+      .setDesc(
+        "查看错题笔记与答案页时，顶部不再显示 frontmatter 属性面板（id/学科/answerMode 等）。" +
+          "数据仍完整写入文件，仅隐藏显示；其他笔记不受影响",
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.hideMistakeProperties).onChange(async (v) => {
+          this.plugin.settings.hideMistakeProperties = v;
+          await this.plugin.saveSettings();
+          this.plugin.applyPropertyVisibility();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("自动开启题目显示强调")
+      .setDesc(
+        "新建/插入错题时自动把题目包进红色强调块，与蓝色答案块视觉配对；" +
+          "关闭则题目保持普通文字。也可选中文字后右键「题目显示强调」手动开关（toggle）",
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.autoQuestionEmphasis).onChange(async (v) => {
+          this.plugin.settings.autoQuestionEmphasis = v;
+          await this.plugin.saveSettings();
+        }),
+      );
 
     new Setting(containerEl)
       .setName("长答案字符阈值")

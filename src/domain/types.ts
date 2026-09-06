@@ -6,8 +6,12 @@
  * 与 Obsidian 打交道一律发生在 src/adapter/ 层。
  */
 
-/** 遮罩风格。'auto' 表示按内容与学科默认规则推导（当前回退为默认风格）。 */
-export type MaskStyle = "auto" | "blur" | "white" | "mosaic" | "frosted";
+/**
+ * 遮罩风格。'auto' 表示按内容与学科默认规则推导（当前回退为默认风格）。
+ * mosaic 由注入一次的 SVG feTile 像素化滤镜实现（定义见 answerMask.ts）。
+ * frosted 已移除：backdrop-filter 覆盖层在部分主题/渲染路径下遮不严实。
+ */
+export type MaskStyle = "auto" | "blur" | "white" | "mosaic" | "black";
 
 /** 答案存放模式：inline = 与题目同笔记；page = 拆分到独立答案页。 */
 export type AnswerMode = "inline" | "page";
@@ -29,14 +33,5 @@ export interface MistakeFrontmatter {
   status: MistakeStatus;
   createdAt: string;
   updatedAt: string;
-  tags?: string[];
-}
-
-/** 答案页（被拆分出去的笔记）的 frontmatter 模型。 */
-export interface AnswerPageFrontmatter {
-  /** 反链：所属题目的错题 ID，用于回溯与将来统计。 */
-  mtAnswerOf: string;
-  /** 人类可读的题目笔记名（用于 README/检索，非唯一键）。 */
-  questionName: string;
   tags?: string[];
 }

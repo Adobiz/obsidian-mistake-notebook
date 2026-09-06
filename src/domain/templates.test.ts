@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { findAnswerBlock, toCalloutLines } from "./answerBlock";
 import { buildPlaceholderBlock } from "./splitRules";
-import { buildAnswerPageSource, buildQuestionSource, makeMistakeFrontmatter } from "./templates";
+import {
+  buildAnswerPageSource,
+  buildAnswerSection,
+  buildQuestionSection,
+  buildQuestionSource,
+  makeMistakeFrontmatter,
+} from "./templates";
 
 const CREATED = "2025-02-12T00:00:00.000Z";
 
@@ -84,5 +90,51 @@ describe("makeMistakeFrontmatter", () => {
     expect(fm.updatedAt).toBe(CREATED);
     expect(fm.tags).toEqual(["错题"]);
     expect(fm.maskStyle).toBe("auto");
+  });
+});
+
+describe("buildAnswerSection", () => {
+  it("短答案 → 内联 [!answer] callout（可再被 findAnswerBlock 解析）", () => {
+    const section = buildAnswerSection("选 A", false, "x-数学-20250212-0805-答案");
+    expect(section).toBe("> [!answer] 答案\n> 选 A");
+    expect(findAnswerBlock(section).found).toBe(true);
+  });
+
+  it("长答案 → 占位链接块，链接指向传入的答案页名", () => {
+    const section = buildAnswerSection("很长的答案", true, "x-数学-20250212-0805-答案");
+    expect(section).toBe(buildPlaceholderBlock("x-数学-20250212-0805-答案"));
+    expect(section).toContain("> [[x-数学-20250212-0805-答案|查看完整答案 →]]");
+  });
+});
+
+describe("buildQuestionSection", () => {
+  it("题目包进红色强调 callout，多行/空行都转成引用行", () => {
+    const section = buildQuestionSection("第一行\n\n第二行");
+    expect(section).toBe("> [!mt-question] 题目\n> 第一行\n>\n> 第二行");
+  });
+
+  it("强调块不影响答案块解析：整篇里 findAnswerBlock 仍定位 [!answer]", () => {
+    const src = [buildQuestionSection("题目内容"), "", "> [!answer] 答案", "> 选 A"].join("\n");
+    const block = findAnswerBlock(src);
+    expect(block.found).toBe(true);
+    expect(block.content).toBe("选 A");
+  });
+
+  it("buildQuestionSource 开启强调时题目进强调块，关闭保持普通文字", () => {
+    const answerSection = "> [!answer] 答案\n> A";
+    const withEm = buildQuestionSource(baseFm("inline"), {
+      topic: "t",
+      question: "题干",
+      answerSection,
+      questionEmphasis: true,
+    });
+    expect(withEm).toContain("> [!mt-question] 题目\n> 题干");
+    const without = buildQuestionSource(baseFm("inline"), {
+      topic: "t",
+      question: "题干",
+      answerSection,
+    });
+    expect(without).not.toContain("mt-question");
+    expect(without).toContain("题干");
   });
 });

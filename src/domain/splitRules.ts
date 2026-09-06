@@ -12,7 +12,6 @@
  */
 
 import type { AnswerBlock } from "./answerBlock";
-import { toCalloutLines } from "./answerBlock";
 
 export interface SplitRules {
   /** 触发拆分的答案字符阈值。 */
@@ -50,7 +49,7 @@ export function shouldSplit(
 }
 
 /** 拆分占位块的标题文案。 */
-export const PLACEHOLDER_TITLE = "查看完整答案";
+const PLACEHOLDER_TITLE = "查看完整答案";
 
 /**
  * 生成拆分后的占位答案块源码（原答案内容被替换成指向答案页的链接）。
@@ -84,12 +83,4 @@ export function replaceAnswerBlockWithPlaceholder(
     ...replacement,
     ...lines.slice(block.lineEnd + 1),
   ].join("\n");
-}
-
-/**
- * 由"已拆分的占位源码 + 完整答案内容"反向合并成内联答案块源码。
- * 供将来的"合并回题目"命令使用，保证操作可逆。
- */
-export function buildInlinedAnswerSource(questionSource: string, answerContent: string): string {
-  return toCalloutLines(answerContent).join("\n");
 }

@@ -1,7 +1,7 @@
 {
   "name": "obsidian-mistake-notebook",
-  "version": "0.1.0",
-  "description": "Obsidian 错题本：带答案遮罩（模糊/纯白）、点击揭晓与长答案自动拆分答案页的错题管理插件",
+  "version": "1.0.0",
+  "description": "Obsidian mistake notebook: mask answers (blur/white/mosaic/black), click to reveal, auto-split long answers to a linked page, insert at cursor, question emphasis, minimal mode. Data stays in plain Markdown — no lock-in.",
   "type": "module",
   "main": "main.js",
   "scripts": {
@@ -31,7 +31,7 @@
     "mistake-notebook",
     "study"
   ],
-  "author": "wxc",
+  "author": "Adobiz",
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.17.0",

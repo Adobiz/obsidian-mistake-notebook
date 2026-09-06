@@ -6,10 +6,12 @@
  * 可以做到原子构造，不依赖"写入后再改写"这种易出错的流程。
  */
 
+import { toCalloutLines } from "./answerBlock";
+import { buildPlaceholderBlock } from "./splitRules";
 import type { AnswerMode, MistakeFrontmatter, MistakeStatus } from "./types";
 
 /** 将任意字符串编码为可安全放进 YAML 双引号标量的形式（复用 JSON 转义）。 */
-export function yamlStr(value: string): string {
+function yamlStr(value: string): string {
   return JSON.stringify(value);
 }
 
@@ -32,10 +34,6 @@ function yamlLines(fm: MistakeFrontmatter): string[] {
   return lines;
 }
 
-export function frontmatterYaml(fm: MistakeFrontmatter): string {
-  return yamlLines(fm).join("\n");
-}
-
 function buildMistakeFm(input: {
   id: string;
   subject: string;
@@ -51,22 +49,42 @@ function buildMistakeFm(input: {
 }
 
 /**
+ * 把题目包进红色强调 callout（纯视觉强调：不参与遮罩/揭晓，也不被
+ * findAnswerBlock 识别为答案块）。多行题目逐行转引用行，空行转 ">"。
+ */
+export function buildQuestionSection(question: string): string {
+  return `> [!mt-question] 题目\n${toCalloutLines(question).join("\n")}`;
+}
+
+/**
  * 构造错题笔记全文。
  *
  * @param topic    题目要点/名称（将作为 H1 标题）
  * @param question 题干 Markdown
  * @param answerSection 已决定的答案区源码（内联 callout 或拆分占位 callout）
+ * @param questionEmphasis 是否把题目包进红色强调块
  */
 export function buildQuestionSource(
   fm: MistakeFrontmatter,
-  opts: { topic: string; question: string; answerSection: string },
+  opts: {
+    topic: string;
+    question: string;
+    answerSection: string;
+    questionEmphasis?: boolean;
+  },
 ): string {
+  const questionBlock =
+    opts.question.trim() === ""
+      ? "> [!todo] 题干待补充"
+      : opts.questionEmphasis
+        ? buildQuestionSection(opts.question)
+        : opts.question.trim();
   const parts = [
     ...yamlLines(fm),
     "",
     `# ${opts.topic}`,
     "",
-    opts.question.trim() === "" ? "> [!todo] 题干待补充" : opts.question.trim(),
+    questionBlock,
     "",
     opts.answerSection.trim(),
     "",
@@ -126,4 +144,19 @@ export function makeMistakeFrontmatter(input: {
     createdAt: input.createdAt,
     tags: input.tags ?? ["错题"],
   });
+}
+
+/**
+ * 按是否拆分构造答案区源码。
+ * "新建错题笔记"与"插入当前笔记"两条录入入口共用，保证两种形态的答案块
+ * 结构一致（遮罩/占位识别、后续反向合并都依赖这个形状）。
+ */
+export function buildAnswerSection(
+  answer: string,
+  splitToPage: boolean,
+  answerBase: string,
+): string {
+  return splitToPage
+    ? buildPlaceholderBlock(answerBase)
+    : `> [!answer] 答案\n${toCalloutLines(answer).join("\n")}`;
 }
