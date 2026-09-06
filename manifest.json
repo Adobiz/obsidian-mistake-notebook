@@ -1,9 +1,9 @@
 {
   "id": "mistake-notebook",
-  "name": "Mistake Notebook (错题本)",
+  "name": "Mistake Notebook",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "Mistake notebook: mask answers (blur/white/mosaic/black), click to reveal, auto-split long answers to a linked page, insert at cursor, question emphasis, minimal mode. Data stays in plain Markdown — no lock-in.",
+  "description": "错题本（Mistake notebook）: mask answers (blur/white/mosaic/black), click to reveal, auto-split long answers to a linked page, insert at cursor, question emphasis, minimal mode. Plain Markdown, no lock-in.",
   "author": "Adobiz",
   "authorUrl": "",
   "isDesktopOnly": false,
