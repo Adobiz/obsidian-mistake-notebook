@@ -6,7 +6,7 @@
 
 答案遮罩 · 点击揭晓 · 长答案自动拆分 · 就地插入 · 极简模式
 
-[![Release](https://img.shields.io/github/v/release/Adobiz/obsidian-mistake-notebook?label=%E6%9C%80%E6%96%B0%E7%89%88)](https://github.com/Adobiz/obsidian-mistake-notebook/releases)
+[![Release](https://img.shields.io/github/v/release/Adobiz/obsidian-mistake-notebook?color=blue&label=version)](https://github.com/Adobiz/obsidian-mistake-notebook/releases/)
 [![CI](https://img.shields.io/github/actions/workflow/status/Adobiz/obsidian-mistake-notebook/ci.yml?label=CI)](https://github.com/Adobiz/obsidian-mistake-notebook/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Obsidian](https://img.shields.io/badge/Obsidian-1.5.0%2B-bd93f9?logo=obsidian&logoColor=white)
