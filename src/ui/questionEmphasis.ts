@@ -61,7 +61,7 @@ export function toggleQuestionEmphasis(editor: Editor): void {
     return;
   }
   const wrappedText = [
-    "> [!mt-question] 题目",
+    `> [!mt-question] ${t("q.emphasisTitle")}`,
     ...lines.map((l) => (l.trim() === "" ? ">" : `> ${l}`)),
   ].join("\n");
   editor.replaceRange(wrappedText, { line: startLine, ch: 0 }, to);

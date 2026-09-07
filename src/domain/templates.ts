@@ -8,6 +8,7 @@
 
 import { toCalloutLines } from "./answerBlock";
 import { buildPlaceholderBlock } from "./splitRules";
+import { t } from "../i18n";
 import type { AnswerMode, MistakeFrontmatter, MistakeStatus } from "./types";
 
 /** 将任意字符串编码为可安全放进 YAML 双引号标量的形式（复用 JSON 转义）。 */
@@ -53,7 +54,7 @@ function buildMistakeFm(input: {
  * findAnswerBlock 识别为答案块）。多行题目逐行转引用行，空行转 ">"。
  */
 export function buildQuestionSection(question: string): string {
-  return `> [!mt-question] 题目\n${toCalloutLines(question).join("\n")}`;
+  return `> [!mt-question] ${t("q.emphasisTitle")}\n${toCalloutLines(question).join("\n")}`;
 }
 
 /**
@@ -75,7 +76,7 @@ export function buildQuestionSource(
 ): string {
   const questionBlock =
     opts.question.trim() === ""
-      ? "> [!todo] 题干待补充"
+      ? `> [!todo] ${t("q.todoTitle")}`
       : opts.questionEmphasis
         ? buildQuestionSection(opts.question)
         : opts.question.trim();
@@ -111,8 +112,8 @@ export function buildAnswerPageSource(input: AnswerPageInput): string {
     "  - 错题答案",
     "---",
     "",
-    `> [!info] 答案页 · 返回题目`,
-    `> [[${input.questionFileBase}|← 返回题目]]`,
+    `> [!info] ${t("page.infoTitle")}`,
+    `> [[${input.questionFileBase}|${t("page.backLink")}]]`,
     "",
     "## 完整答案",
     "",
@@ -158,5 +159,5 @@ export function buildAnswerSection(
 ): string {
   return splitToPage
     ? buildPlaceholderBlock(answerBase)
-    : `> [!answer] 答案\n${toCalloutLines(answer).join("\n")}`;
+    : `> [!answer] ${t("a.title")}\n${toCalloutLines(answer).join("\n")}`;
 }

@@ -11,6 +11,7 @@
  * 便于预览、可逆与测试。
  */
 
+import { t } from "../i18n";
 import type { AnswerBlock } from "./answerBlock";
 
 export interface SplitRules {
@@ -48,9 +49,6 @@ export function shouldSplit(
   return { split: reasons.length > 0, reasons };
 }
 
-/** 拆分占位块的标题文案。 */
-const PLACEHOLDER_TITLE = "查看完整答案";
-
 /**
  * 生成拆分后的占位答案块源码（原答案内容被替换成指向答案页的链接）。
  * 正文刻意只有单个 wikilink —— isPlaceholderLinkOnly 与阅读视图据此跳过遮罩，
@@ -60,8 +58,8 @@ const PLACEHOLDER_TITLE = "查看完整答案";
  */
 export function buildPlaceholderBlock(answerBasename: string): string {
   const lines = [
-    `> [!answer] ${PLACEHOLDER_TITLE}（答案较长，已拆分答案页）`,
-    `> [[${answerBasename}|查看完整答案 →]]`,
+    `> [!answer] ${t("a.placeholderHeading")}`,
+    `> [[${answerBasename}|${t("a.viewFull")}]]`,
   ];
   return lines.join("\n");
 }
