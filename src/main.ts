@@ -13,6 +13,7 @@ import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
 import type { MistakeSettings } from "./settings";
 import { NewMistakeModal, type NewMistakeMode } from "./ui/NewMistakeModal";
 import { toggleQuestionEmphasis } from "./ui/questionEmphasis";
+import { DASHBOARD_VIEW_TYPE, MistakeDashboardView } from "./ui/dashboardView";
 
 export default class MistakeNotebookPlugin extends Plugin {
   /** 覆盖基类 Plugin.settings（见 obsidian 1.13+ 类型），用具体类型收窄。 */
@@ -37,6 +38,18 @@ export default class MistakeNotebookPlugin extends Plugin {
     );
 
     this.addSettingTab(new MistakeSettingTab(this.app, this));
+
+    // 仪表盘：左侧边栏视图 + ribbon 图标入口
+    this.registerView(
+      DASHBOARD_VIEW_TYPE,
+      (leaf) => new MistakeDashboardView(leaf, () => this.settings),
+    );
+    this.addRibbonIcon("bar-chart-3", "错题仪表盘", () => void this.activateDashboard());
+    this.addCommand({
+      id: "open-dashboard",
+      name: "打开错题仪表盘",
+      callback: () => void this.activateDashboard(),
+    });
 
     this.addCommand({
       id: "create-mistake",
@@ -168,6 +181,16 @@ export default class MistakeNotebookPlugin extends Plugin {
     await this.saveSettings();
     this.applyMinimalMode();
     new Notice(`极简模式已${this.settings.minimalMode ? "开启" : "关闭"}。`);
+  }
+
+  /** 打开（或聚焦已打开的）左侧仪表盘视图。 */
+  private async activateDashboard(): Promise<void> {
+    const { workspace } = this.app;
+    const existing = workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
+    const leaf = existing[0] ?? workspace.getLeftLeaf(false);
+    if (leaf === null) return;
+    await leaf.setViewState({ type: DASHBOARD_VIEW_TYPE, active: true });
+    workspace.revealLeaf(leaf);
   }
 
   /** 录入入口统一走这里：命令面板与编辑器右键菜单共用。 */

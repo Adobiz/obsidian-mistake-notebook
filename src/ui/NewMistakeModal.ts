@@ -121,15 +121,22 @@ export class NewMistakeModal extends Modal {
       const block = findAnswerBlock(src);
       const verdict = shouldSplit(block, false, toSplitRules(s));
       const suggested = verdict.split;
-      meta.setText(`答案 ${block.contentLength} 字${suggested ? " · 建议拆分" : ""}`);
-      if (s.splitBehavior !== "off") {
-        splitCheckbox.disabled = false;
-        if (autoSuggest) splitCheckbox.checked = suggested;
-      } else {
+      if (s.splitBehavior === "auto") {
+        // 设置为自动拆分：直接执行，不给复选框选择权
+        splitCheckbox.checked = true;
+        splitCheckbox.disabled = true;
+        meta.setText(`答案 ${block.contentLength} 字 · 设置为自动拆分`);
+      } else if (s.splitBehavior === "off") {
         splitCheckbox.checked = false;
         splitCheckbox.disabled = true;
+        meta.setText(`答案 ${block.contentLength} 字 · 设置为不拆分`);
+      } else {
+        // ask：跟随建议，但用户点过复选框后尊重用户（避免替用户做决定）
+        splitCheckbox.disabled = false;
+        if (autoSuggest) splitCheckbox.checked = suggested;
+        meta.setText(`答案 ${block.contentLength} 字${suggested ? " · 建议拆分" : ""}`);
+        if (answer.value.trim() === "" && autoSuggest) splitCheckbox.checked = false;
       }
-      if (answer.value.trim() === "" && autoSuggest) splitCheckbox.checked = false;
     };
     answer.addEventListener("input", refresh);
     refresh();
@@ -209,7 +216,11 @@ export class NewMistakeModal extends Modal {
     const text = (el?: HTMLInputElement): string => el?.value.trim() ?? "";
     const subject = text(f.subject) || "未分类";
     const topic = text(f.topic) || "错题";
-    const usePage = f.splitCheckbox.checked && !f.splitCheckbox.disabled;
+    // 拆分决定：auto/off 直接按设置执行；ask 才看复选框（auto 下复选框是禁用态，
+    // 不能用 checked && !disabled 判定，否则会被误判为不拆分）
+    const behavior = this.getSettings().splitBehavior;
+    const usePage =
+      behavior === "auto" ? true : behavior === "off" ? false : f.splitCheckbox.checked;
     const params = {
       subject,
       topic,

@@ -79,3 +79,16 @@ describe("stripCalloutPrefix / toCalloutLines（互逆）", () => {
     expect(toCalloutLines("a\n\nb")).toEqual(["> a", ">", "> b"]);
   });
 });
+
+describe("展示公式识别", () => {
+  it("$$ 独占行或成对 $$ 才算展示公式，行首/行尾裸 $$ 不算", () => {
+    const has = (line: string): boolean => {
+      const src = ["> [!answer]", `> ${line}`].join("\n");
+      return findAnswerBlock(src)?.hasDisplayMath ?? false;
+    };
+    expect(has("$$")).toBe(true); // 多行公式边界行
+    expect(has("$$x^2$$")).toBe(true); // 单行成对
+    expect(has("价格 $$100 起")).toBe(false); // 行首 $$ 后面是数字：普通文本
+    expect(has("答案见 $$ 教材")).toBe(false); // 行尾 $$：普通文本
+  });
+});

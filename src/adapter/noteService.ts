@@ -265,6 +265,13 @@ export class MistakeNoteService {
       settings.answersSubfolderWhenFollowing,
     );
     const answerPath = buildAnswerPath(answerDir, questionBase);
+    // 已存在同名答案页时不覆盖——提示用户处理，避免静默丢失已有解析
+    if (this.app.vault.getAbstractFileByPath(answerPath) !== null) {
+      return {
+        ok: false,
+        message: `答案页已存在（${answerPath}）。如需重拆，请先删除或改名旧答案页。`,
+      };
+    }
     await this.ensureFolder(answerDir);
     await this.app.vault.create(answerPath, answerSource);
 
@@ -276,6 +283,7 @@ export class MistakeNoteService {
     await this.app.vault.process(file, () => replaced);
     await this.app.fileManager.processFrontMatter(file, (data: Record<string, unknown>) => {
       data["answerMode"] = "page";
+      data["updatedAt"] = new Date().toISOString();
       if (data["id"] === undefined) data["id"] = id;
     });
 

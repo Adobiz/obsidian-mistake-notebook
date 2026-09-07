@@ -37,8 +37,8 @@ const CALLOUT_HEADER_RE = /^[ \t]*>[ \t]*\[!answer\][ \t]*(.*)$/i;
 const CALLOUT_LINE_RE = /^[ \t]*>(?:[ \t]?(.*))?$/;
 /** 图片：embed 链接或标准 markdown 图片。 */
 const IMAGE_RE = /!\[\[[^\]|]+(?:\.[a-zA-Z0-9]+)?(?:\|[^\]]*)?\]\]|!\[[^\]]*\]\([^)]*\)/;
-/** 单行内两个 $$（单行展示公式）或多行公式的第一行。 */
-const DOLLAR_LINE_RE = /^[ \t]*\$\$|\$\$[ \t]*$/;
+/** 展示型公式行：整行仅 $$（多行公式边界），或一行内成对 $$。避免 "价格 $$100" 误判。 */
+const DOLLAR_LINE_RE = /^[ \t]*\$\$[ \t]*$|^[ \t]*\$\$[^$]*\$\$[ \t]*$/;
 
 /** 去掉一行的 ">" 前缀（可能带一个空格），返回净内容。 */
 export function stripCalloutPrefix(line: string): string {
