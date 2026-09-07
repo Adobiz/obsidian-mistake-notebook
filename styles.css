@@ -91,17 +91,15 @@
 }
 
 /* ---------- 题目强调块（黑色描边框，纯视觉：不参与遮罩/揭晓/占位识别） ---------- */
-/* 不用 callout 的配色变量做主视觉——部分主题会覆盖 --callout-color，
-   直接显式描边最稳。var(--text-normal) 在浅色主题≈黑、深色主题自动反白。 */
 .callout[data-callout="mt-question"] {
   --callout-color: 0, 0, 0;
   --callout-icon: lucide-circle-help;
-  border: 2px solid var(--text-normal) !important;
-  background-color: var(--background-primary) !important;
+  border: 2px solid var(--text-normal);
+  background-color: var(--background-primary);
 }
 
 .callout[data-callout="mt-question"] .callout-title {
-  color: var(--text-normal) !important;
+  color: var(--text-normal);
 }
 
 /* ---------- 占位（已拆分）答案块 ---------- */
@@ -113,13 +111,18 @@
 body.mt-minimal .metadata-container,
 body.mt-minimal .frontmatter-container,
 body.mt-minimal .embedded-backlinks {
-  display: none !important;
+  display: none;
 }
 
 /* ---------- 隐藏错题/答案页顶部的属性面板（数据仍完整写入，仅不显示） ---------- */
 body.mt-hide-properties.mt-viewing-mistake .metadata-container,
 body.mt-hide-properties.mt-viewing-mistake .frontmatter-container {
-  display: none !important;
+  display: none;
+}
+
+/* mosaic 像素化滤镜的 defs 容器：0 尺寸且不占布局（不能 display:none，会失效） */
+#mt-pixelate-defs {
+  position: absolute;
 }
 
 .mistake-modal .mistake-minimal-note {

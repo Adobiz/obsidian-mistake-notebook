@@ -25,7 +25,7 @@ export class MistakeSettingTab extends PluginSettingTab {
   override display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "错题本 · 设置" });
+    new Setting(containerEl).setName("错题本 · 设置").setHeading();
 
     new Setting(containerEl)
       .setName("错题笔记根目录")

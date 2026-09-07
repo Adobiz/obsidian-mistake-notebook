@@ -32,7 +32,7 @@ function ensurePixelateFilterDef(): void {
   const svg = el("svg");
   svg.setAttribute("width", "0");
   svg.setAttribute("height", "0");
-  svg.style.position = "absolute";
+  svg.id = "mt-pixelate-defs";
   const filter = el("filter");
   filter.id = "mt-pixelate";
   const dot = el("feFlood");
@@ -110,12 +110,8 @@ export function createAnswerMaskPostProcessor(app: App, getSettings: () => Mista
       const title = callout.querySelector<HTMLElement>(":scope > .callout-title");
       if (title === null) continue;
 
-      const hint = document.createElement("span");
-      hint.className = "mt-mask-hint";
-      hint.textContent = "👆 点击显示答案";
-      const remask = document.createElement("span");
-      remask.className = "mt-remask-btn";
-      remask.textContent = "重新遮住";
+      const hint = title.createEl("span", { cls: "mt-mask-hint", text: "👆 点击显示答案" });
+      const remask = title.createEl("span", { cls: "mt-remask-btn", text: "重新遮住" });
 
       hint.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -134,8 +130,6 @@ export function createAnswerMaskPostProcessor(app: App, getSettings: () => Mista
           callout.classList.add("is-revealed");
         }
       });
-
-      title.append(hint, remask);
     }
   };
 }

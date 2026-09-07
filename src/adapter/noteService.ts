@@ -152,8 +152,9 @@ export class MistakeNoteService {
       try {
         await this.app.vault.create(answerPath, answerSource);
       } catch (err) {
+        // 答案页写入失败时回滚题目笔记（走回收站，尊重用户的删除偏好）
         const question = this.app.vault.getAbstractFileByPath(questionPath);
-        if (question !== null) await this.app.vault.delete(question);
+        if (question !== null) await this.app.fileManager.trashFile(question);
         throw err;
       }
     }
@@ -273,7 +274,7 @@ export class MistakeNoteService {
       buildAnswerBase(questionBase),
     );
     await this.app.vault.process(file, () => replaced);
-    await this.app.fileManager.processFrontMatter(file, (data) => {
+    await this.app.fileManager.processFrontMatter(file, (data: Record<string, unknown>) => {
       data["answerMode"] = "page";
       if (data["id"] === undefined) data["id"] = id;
     });

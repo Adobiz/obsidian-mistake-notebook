@@ -13,7 +13,6 @@ import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
 import type { MistakeSettings } from "./settings";
 import { NewMistakeModal, type NewMistakeMode } from "./ui/NewMistakeModal";
 import { toggleQuestionEmphasis } from "./ui/questionEmphasis";
-import pluginStyles from "../styles.css";
 
 export default class MistakeNotebookPlugin extends Plugin {
   /** 覆盖基类 Plugin.settings（见 obsidian 1.13+ 类型），用具体类型收窄。 */
@@ -23,7 +22,6 @@ export default class MistakeNotebookPlugin extends Plugin {
   override async onload(): Promise<void> {
     await this.loadSettings();
     this.service = new MistakeNoteService(this.app, () => this.settings);
-    this.injectStyles();
     this.applyMinimalMode();
     this.applyPropertyVisibility();
     this.updateMistakeViewClass();
@@ -135,22 +133,9 @@ export default class MistakeNotebookPlugin extends Plugin {
     });
   }
 
-  override async onunload(): Promise<void> {
-    // 本插件注入的 <style> 与 body class 在卸载时亲手清掉。
-    document.getElementById("mt-plugin-styles")?.remove();
+  override onunload(): void {
+    // 本插件注入的 body class 在卸载时亲手清掉。
     document.body.classList.remove("mt-minimal", "mt-hide-properties", "mt-viewing-mistake");
-  }
-
-  /**
-   * 样式注入：与 esbuild 的 css-as-text 配合，保证样式跟 main.js 同生命周期。
-   * （部分环境下 Obsidian 不会随文件更新重读插件的 styles.css，导致改样式不生效。）
-   */
-  private injectStyles(): void {
-    if (document.getElementById("mt-plugin-styles") !== null) return;
-    const el = document.createElement("style");
-    el.id = "mt-plugin-styles";
-    el.textContent = pluginStyles;
-    document.head.appendChild(el);
   }
 
   /** 极简模式只改观感（body class），不碰任何笔记数据；退出走「切换极简模式」命令。 */
@@ -167,7 +152,8 @@ export default class MistakeNotebookPlugin extends Plugin {
   private isMistakeFile(): boolean {
     const file = this.app.workspace.getActiveFile();
     if (file === null) return false;
-    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as
+      Record<string, unknown> | undefined;
     if (fm === undefined) return false;
     const id = fm["id"];
     return (typeof id === "string" && id.startsWith("mt-")) || fm["mt-answer-of"] !== undefined;
