@@ -4,6 +4,7 @@
  */
 
 import type { MaskStyle } from "./domain/types";
+import type { LanguagePref } from "./i18n";
 
 export type SplitBehavior = "ask" | "auto" | "off";
 
@@ -35,6 +36,8 @@ export interface MistakeSettings {
   autoQuestionEmphasis: boolean;
   /** 错题笔记与答案页隐藏顶部属性面板（仅显示层，数据仍完整写入）。 */
   hideMistakeProperties: boolean;
+  /** 界面语言：auto=跟随 Obsidian；zh/en=手动指定。 */
+  language: LanguagePref;
 }
 
 export const DEFAULT_SETTINGS: MistakeSettings = {
@@ -50,6 +53,7 @@ export const DEFAULT_SETTINGS: MistakeSettings = {
   minimalMode: false,
   autoQuestionEmphasis: true,
   hideMistakeProperties: true,
+  language: "auto",
 };
 
 /** 与磁盘上的旧/损坏配置合并，逐字段回退默认值（绝不抛错）。 */
@@ -98,6 +102,7 @@ export function normalizeSettings(raw: unknown): MistakeSettings {
       typeof o["hideMistakeProperties"] === "boolean"
         ? o["hideMistakeProperties"]
         : d.hideMistakeProperties,
+    language: o["language"] === "zh" || o["language"] === "en" ? o["language"] : d.language,
   };
 }
 

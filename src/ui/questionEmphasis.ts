@@ -6,6 +6,7 @@
 import { Notice } from "obsidian";
 import type { Editor } from "obsidian";
 import { stripCalloutPrefix } from "../domain/answerBlock";
+import { t } from "../i18n";
 
 const HEADER_RE = /^[ \t]*>[ \t]*\[!mt-question\]/;
 
@@ -52,11 +53,11 @@ export function toggleQuestionEmphasis(editor: Editor): void {
   const lines: string[] = [];
   for (let l = startLine; l <= endLine; l++) lines.push(editor.getLine(l));
   if (lines.some((l) => l.startsWith(">"))) {
-    new Notice("选中区域包含 callout/引用行，无法直接强调题目。");
+    new Notice(t("qe.hasCallout"));
     return;
   }
   if (lines.every((l) => l.trim() === "")) {
-    new Notice("没有可强调的题目内容。");
+    new Notice(t("qe.empty"));
     return;
   }
   const wrappedText = [

@@ -31,6 +31,7 @@ import { parseMistakeFrontmatter } from "../domain/frontmatter";
 import { replaceAnswerBlockWithPlaceholder, shouldSplit } from "../domain/splitRules";
 import type { MistakeSettings } from "../settings";
 import { toSplitRules } from "../settings";
+import { t } from "../i18n";
 
 export interface CreateMistakeParams {
   subject: string;
@@ -237,17 +238,17 @@ export class MistakeNoteService {
     const block = findAnswerBlock(source);
 
     if (!block.found) {
-      return { ok: false, message: "当前笔记中没有 [!answer] 答案块。" };
+      return { ok: false, message: t("svc.noAnswer") };
     }
     if (block.isPlaceholderLinkOnly) {
-      return { ok: false, message: "当前笔记的答案已经是拆分后的占位链接。" };
+      return { ok: false, message: t("svc.alreadyPlaceholder") };
     }
 
     const cache = this.app.metadataCache.getFileCache(file);
     const fm = parseMistakeFrontmatter(cache?.frontmatter);
     const verdict = shouldSplit(block, fm.answerMode === "page", toSplitRules(settings));
     if (!force && !verdict.split) {
-      return { ok: false, message: `答案不算长（${block.contentLength} 字），无需拆分。` };
+      return { ok: false, message: t("svc.notLongEnough", { chars: block.contentLength }) };
     }
 
     const id = fm.id !== "" ? fm.id : generateMistakeId(new Date(), fm.subject);
@@ -269,7 +270,7 @@ export class MistakeNoteService {
     if (this.app.vault.getAbstractFileByPath(answerPath) !== null) {
       return {
         ok: false,
-        message: `答案页已存在（${answerPath}）。如需重拆，请先删除或改名旧答案页。`,
+        message: t("svc.answerExists", { path: answerPath }),
       };
     }
     await this.ensureFolder(answerDir);
@@ -287,7 +288,7 @@ export class MistakeNoteService {
       if (data["id"] === undefined) data["id"] = id;
     });
 
-    return { ok: true, message: `已拆分到 ${answerPath}。` };
+    return { ok: true, message: t("svc.splitDone", { path: answerPath }) };
   }
 
   /** 在活动标签页中打开指定路径的笔记。 */

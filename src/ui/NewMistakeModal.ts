@@ -4,6 +4,7 @@
  * 支持：文字/LaTeX 题干与答案录入；在答案框内直接 Ctrl/⌘+V 粘贴截图
  * （图片自动落盘到 vault，插入 ![[...]] 引用）。
  * “拆分答案页”复选框依据领域层判定默认给出建议，最终由用户确认。
+ * 文案走 i18n；写入文件的默认值（未分类/错题）是数据约定，保持中文。
  */
 
 import { Modal, Notice } from "obsidian";
@@ -13,6 +14,7 @@ import { shouldSplit } from "../domain/splitRules";
 import type { MistakeNoteService } from "../adapter/noteService";
 import type { MistakeSettings } from "../settings";
 import { toSplitRules } from "../settings";
+import { t } from "../i18n";
 
 interface FieldSet {
   /** 极简模式下省略（undefined），提交时走默认值。 */
@@ -55,8 +57,9 @@ export class NewMistakeModal extends Modal {
     this.mode = options.mode ?? "create";
     this.hostFile = options.hostFile;
     this.editor = options.editor;
-    const suffix = this.getSettings().minimalMode ? "（极简）" : "";
-    this.titleEl.setText(this.mode === "insert" ? `插入错题${suffix}` : `新建错题${suffix}`);
+    const suffix = this.getSettings().minimalMode ? t("modal.titleSuffix") : "";
+    const base = this.mode === "insert" ? t("modal.insertTitle") : t("modal.newTitle");
+    this.titleEl.setText(`${base}${suffix}`);
     this.fields = this.buildForm();
     this.modalEl.classList.add("mistake-modal");
   }
@@ -74,38 +77,32 @@ export class NewMistakeModal extends Modal {
     // 极简模式：省略学科/来源/错误类型/题目要点，提交时走默认值（未分类/错题），
     // 之后都能在笔记 frontmatter 里补改。
     const minimal = s.minimalMode;
-    const subject = minimal ? undefined : mkInput("学科（必填）", "数学 / 物理 / 英语…");
-    const source = minimal ? undefined : mkInput("来源（可选）", "月考 2025-01 / 练习册 P12…");
+    const subject = minimal ? undefined : mkInput(t("modal.subjectLabel"), t("modal.subjectPh"));
+    const source = minimal ? undefined : mkInput(t("modal.sourceLabel"), t("modal.sourcePh"));
     const errorType = minimal
       ? undefined
-      : mkInput("错误类型（可选）", "概念混淆 / 计算失误 / 审题错误…");
+      : mkInput(t("modal.errorTypeLabel"), t("modal.errorTypePh"));
     const topic = minimal
       ? undefined
       : mkInput(
-          this.mode === "insert" ? "题目要点（拆分答案页命名用）" : "题目要点（文件名用）",
-          "如：函数单调性（可稍后改名）",
+          this.mode === "insert" ? t("modal.topicLabelSplit") : t("modal.topicLabelFile"),
+          t("modal.topicPh"),
         );
     if (minimal) {
-      this.contentEl.createDiv({
-        cls: "mistake-minimal-note",
-        text: "极简模式：只填题目与答案，学科等信息自动记为未分类，稍后可在笔记里补",
-      });
+      this.contentEl.createDiv({ cls: "mistake-minimal-note", text: t("modal.minimalNote") });
     }
 
     const qWrap = this.contentEl.createDiv({ cls: "mistake-field" });
-    qWrap.createEl("label", { cls: "mistake-label", text: "题干（支持 Markdown / LaTeX）" });
+    qWrap.createEl("label", { cls: "mistake-label", text: t("modal.questionLabel") });
     const question = qWrap.createEl("textarea");
 
     const aWrap = this.contentEl.createDiv({ cls: "mistake-field" });
-    aWrap.createEl("label", {
-      cls: "mistake-label",
-      text: "答案与解析（支持 Markdown / LaTeX / 直接粘贴截图）",
-    });
+    aWrap.createEl("label", { cls: "mistake-label", text: t("modal.answerLabel") });
     const answer = aWrap.createEl("textarea");
 
     const splitRow = this.contentEl.createDiv({ cls: "mistake-split-row" });
     const splitCheckbox = splitRow.createEl("input", { type: "checkbox" });
-    const splitLabel = splitRow.createEl("label", { text: "拆分为独立答案页（长答案自动跳转）" });
+    const splitLabel = splitRow.createEl("label", { text: t("modal.splitCheck") });
     splitLabel.prepend(splitCheckbox);
     const meta = this.contentEl.createDiv({ cls: "mistake-answer-meta" });
     const error = this.contentEl.createDiv({ cls: "mistake-error" });
@@ -121,20 +118,21 @@ export class NewMistakeModal extends Modal {
       const block = findAnswerBlock(src);
       const verdict = shouldSplit(block, false, toSplitRules(s));
       const suggested = verdict.split;
+      const chars = block.contentLength;
       if (s.splitBehavior === "auto") {
         // 设置为自动拆分：直接执行，不给复选框选择权
         splitCheckbox.checked = true;
         splitCheckbox.disabled = true;
-        meta.setText(`答案 ${block.contentLength} 字 · 设置为自动拆分`);
+        meta.setText(t("modal.metaAuto", { chars }));
       } else if (s.splitBehavior === "off") {
         splitCheckbox.checked = false;
         splitCheckbox.disabled = true;
-        meta.setText(`答案 ${block.contentLength} 字 · 设置为不拆分`);
+        meta.setText(t("modal.metaOff", { chars }));
       } else {
         // ask：跟随建议，但用户点过复选框后尊重用户（避免替用户做决定）
         splitCheckbox.disabled = false;
         if (autoSuggest) splitCheckbox.checked = suggested;
-        meta.setText(`答案 ${block.contentLength} 字${suggested ? " · 建议拆分" : ""}`);
+        meta.setText(`${t("modal.metaAsk", { chars })}${suggested ? t("modal.suggestSplit") : ""}`);
         if (answer.value.trim() === "" && autoSuggest) splitCheckbox.checked = false;
       }
     };
@@ -151,7 +149,7 @@ export class NewMistakeModal extends Modal {
 
     const footer = this.contentEl.createDiv({ cls: "modal-button-container" });
     const submit = footer.createEl("button", {
-      text: this.mode === "insert" ? "插入到当前笔记" : "创建错题",
+      text: this.mode === "insert" ? t("modal.btnInsert") : t("modal.btnCreate"),
       cls: "mod-cta",
     });
     submit.addEventListener("click", () => void this.onSubmit());
@@ -182,17 +180,19 @@ export class NewMistakeModal extends Modal {
         answer.value += "\n";
         answer.dispatchEvent(new Event("input"));
       } catch (err) {
-        new Notice(`图片保存失败：${err instanceof Error ? err.message : String(err)}`);
+        new Notice(
+          t("modal.imgSaveFail", { err: err instanceof Error ? err.message : String(err) }),
+        );
       }
     }
   }
 
   private validate(): string | null {
     const f = this.fields;
-    if (f === undefined) return "表单未初始化";
-    if (f.subject !== undefined && f.subject.value.trim() === "") return "请填写学科。";
+    if (f === undefined) return t("modal.errInit");
+    if (f.subject !== undefined && f.subject.value.trim() === "") return t("modal.errSubject");
     if (f.answer.value.trim() === "" && f.question.value.trim() === "")
-      return "题干与答案至少填一项。";
+      return t("modal.errContent");
     return null;
   }
 
@@ -204,9 +204,9 @@ export class NewMistakeModal extends Modal {
       f.error.setText(invalid);
       return;
     }
-    const idleLabel = this.mode === "insert" ? "插入到当前笔记" : "创建错题";
-    const busyLabel = this.mode === "insert" ? "插入中…" : "创建中…";
-    const failLabel = this.mode === "insert" ? "插入失败" : "创建失败";
+    const idleLabel = this.mode === "insert" ? t("modal.btnInsert") : t("modal.btnCreate");
+    const busyLabel = this.mode === "insert" ? t("modal.busyInsert") : t("modal.busyCreate");
+    const failLabel = this.mode === "insert" ? t("modal.failInsert") : t("modal.failCreate");
     f.error.setText("");
     this.writing = true;
     f.submit.setText(busyLabel);
@@ -214,6 +214,7 @@ export class NewMistakeModal extends Modal {
     const answer = f.answer.value.trim();
     const question = f.question.value.trim();
     const text = (el?: HTMLInputElement): string => el?.value.trim() ?? "";
+    // 数据约定：未填写的学科/主题走默认中文值（写入 frontmatter 与文件名，不随 UI 语言）
     const subject = text(f.subject) || "未分类";
     const topic = text(f.topic) || "错题";
     // 拆分决定：auto/off 直接按设置执行；ask 才看复选框（auto 下复选框是禁用态，
@@ -234,7 +235,7 @@ export class NewMistakeModal extends Modal {
     try {
       if (this.mode === "insert") {
         if (this.editor === undefined || this.hostFile === undefined) {
-          f.error.setText("缺少宿主笔记上下文，请从右键菜单或命令面板重新进入。");
+          f.error.setText(t("modal.errNoCtx"));
           this.writing = false;
           f.submit.setText(idleLabel);
           return;
@@ -244,15 +245,15 @@ export class NewMistakeModal extends Modal {
         this.close();
         new Notice(
           inserted.answerPath !== undefined
-            ? `已插入错题，答案页：${inserted.answerPath}`
-            : "已在当前笔记插入错题。",
+            ? t("modal.noticeInsertedPage", { path: inserted.answerPath })
+            : t("modal.noticeInsertedInline"),
         );
         return;
       }
 
       const result = await this.service.createMistake(params);
       this.close();
-      new Notice(`已创建错题：${result.questionPath}`);
+      new Notice(t("modal.noticeCreated", { path: result.questionPath }));
       void this.service.openNote(result.questionPath);
     } catch (err) {
       f.error.setText(`${failLabel}：${err instanceof Error ? err.message : String(err)}`);

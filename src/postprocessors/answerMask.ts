@@ -15,6 +15,7 @@ import type { App, MarkdownPostProcessorContext } from "obsidian";
 import { parseMistakeFrontmatter } from "../domain/frontmatter";
 import type { MaskStyle } from "../domain/types";
 import type { MistakeSettings } from "../settings";
+import { t } from "../i18n";
 
 /** 当前已实现的遮罩风格（mosaic 依赖下方注入的 #mt-pixelate SVG 滤镜）。 */
 const IMPLEMENTED_MASK_STYLES: readonly MaskStyle[] = ["blur", "white", "mosaic", "black"];
@@ -111,8 +112,8 @@ export function createAnswerMaskPostProcessor(app: App, getSettings: () => Mista
       const title = callout.querySelector<HTMLElement>(":scope > .callout-title");
       if (title === null) continue;
 
-      const hint = title.createEl("span", { cls: "mt-mask-hint", text: "👆 点击显示答案" });
-      const remask = title.createEl("span", { cls: "mt-remask-btn", text: "重新遮住" });
+      const hint = title.createEl("span", { cls: "mt-mask-hint", text: t("mask.hint") });
+      const remask = title.createEl("span", { cls: "mt-remask-btn", text: t("mask.remask") });
 
       hint.addEventListener("click", (ev) => {
         ev.stopPropagation();

@@ -1,0 +1,279 @@
+/**
+ * 轻量 i18n：中/英 UI 文案字典与语言解析。
+ *
+ * 约定：本模块只管"界面文案"。写入 Markdown 文件的数据层文案
+ * （frontmatter 的 subject=未分类、文件名 -答案 后缀、[!answer] 占位标题等）
+ * 是数据约定，不随 UI 语言切换——保证新旧笔记格式一致。
+ */
+
+export type UiLang = "zh" | "en";
+export type LanguagePref = "auto" | UiLang;
+
+/** 检测 Obsidian 界面语言（存储在 localStorage["language"]，如 zh / zh-TW / en / ja…）。 */
+export function detectObsidianLanguage(): UiLang {
+  if (typeof localStorage === "undefined") return "en";
+  const raw = localStorage.getItem("language");
+  return raw !== null && raw.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+/** auto = 跟随系统语言；否则用户显式指定。 */
+export function resolveLanguage(pref: LanguagePref, system: UiLang): UiLang {
+  return pref === "auto" ? system : pref;
+}
+
+const zh = {
+  "cmd.newMistake": "新建错题（含答案遮罩）",
+  "cmd.insertMistake": "在当前位置插入错题（含答案遮罩）",
+  "cmd.splitNote": "把当前笔记的内联答案拆分为答案页",
+  "cmd.toggleMinimal": "切换极简模式",
+  "cmd.openDashboard": "打开错题仪表盘",
+  "menu.insert": "插入错题",
+  "menu.insertHere": "在当前位置插入",
+  "menu.newPage": "新建错题页面",
+  "menu.insertHereFlat": "插入错题 · 在当前位置插入",
+  "menu.newPageFlat": "插入错题 · 新建错题页面",
+  "menu.emphasize": "题目显示强调",
+  "notice.openNoteFirst": "请先打开一篇笔记再插入错题。",
+  "notice.minimalOn": "极简模式已开启。",
+  "notice.minimalOff": "极简模式已关闭。",
+  "modal.newTitle": "新建错题",
+  "modal.insertTitle": "插入错题（当前笔记）",
+  "modal.titleSuffix": "（极简）",
+  "modal.subjectLabel": "学科（必填）",
+  "modal.subjectPh": "数学 / 物理 / 英语…",
+  "modal.sourceLabel": "来源（可选）",
+  "modal.sourcePh": "月考 2025-01 / 练习册 P12…",
+  "modal.errorTypeLabel": "错误类型（可选）",
+  "modal.errorTypePh": "概念混淆 / 计算失误 / 审题错误…",
+  "modal.topicLabelFile": "题目要点（文件名用）",
+  "modal.topicLabelSplit": "题目要点（拆分答案页命名用）",
+  "modal.topicPh": "如：函数单调性（可稍后改名）",
+  "modal.minimalNote": "极简模式：只填题目与答案，学科等信息自动记为未分类，稍后可在笔记里补",
+  "modal.questionLabel": "题干（支持 Markdown / LaTeX）",
+  "modal.answerLabel": "答案与解析（支持 Markdown / LaTeX / 直接粘贴截图）",
+  "modal.splitCheck": "拆分为独立答案页（长答案自动跳转）",
+  "modal.metaAuto": "答案 {chars} 字 · 设置为自动拆分",
+  "modal.metaOff": "答案 {chars} 字 · 设置为不拆分",
+  "modal.metaAsk": "答案 {chars} 字",
+  "modal.suggestSplit": " · 建议拆分",
+  "modal.btnInsert": "插入到当前笔记",
+  "modal.btnCreate": "创建错题",
+  "modal.busyInsert": "插入中…",
+  "modal.busyCreate": "创建中…",
+  "modal.failInsert": "插入失败",
+  "modal.failCreate": "创建失败",
+  "modal.errInit": "表单未初始化",
+  "modal.errSubject": "请填写学科。",
+  "modal.errContent": "题干与答案至少填一项。",
+  "modal.errNoCtx": "缺少宿主笔记上下文，请从右键菜单或命令面板重新进入。",
+  "modal.noticeInsertedPage": "已插入错题，答案页：{path}",
+  "modal.noticeInsertedInline": "已在当前笔记插入错题。",
+  "modal.noticeCreated": "已创建错题：{path}",
+  "modal.imgSaveFail": "图片保存失败：{err}",
+  "set.heading": "错题本 · 设置",
+  "set.language": "界面语言",
+  "set.languageDesc": "auto 跟随 Obsidian 界面语言；也可手动指定。界面即时生效",
+  "set.langAuto": "自动（跟随 Obsidian）",
+  "set.langZh": "简体中文",
+  "set.langEn": "English",
+  "set.qRoot": "错题笔记根目录",
+  "set.qRootDesc": "新错题将存入 根目录/学科/ 下",
+  "set.aRoot": "答案页根目录",
+  "set.aRootDesc": "拆分出的长答案存放目录",
+  "set.follow": "答案页跟随错题目录",
+  "set.followDesc":
+    "开启后，拆分出的答案页生成在错题笔记所在目录内（可再选是否建子文件夹）；关闭则使用上方答案页根目录。仅影响之后生成的答案页，不迁移已有文件",
+  "set.subfolder": "在错题目录内创建答案文件夹",
+  "set.subfolderDesc":
+    "开启后，答案页统一放入 错题目录/{name}/ 子文件夹；关闭则与错题笔记同目录存放",
+  "set.maskStyle": "默认遮罩风格",
+  "set.maskStyleDesc": "答案块未单独指定风格时使用；单题可用 frontmatter 的 maskStyle 覆盖",
+  "mask.blur": "模糊（Blur）",
+  "mask.white": "纯白（White）",
+  "mask.mosaic": "马赛克（Mosaic）",
+  "mask.black": "纯黑（Black）",
+  "set.minimal": "极简模式",
+  "set.minimalDesc":
+    "开启后录入错题只需题目与答案（学科等自动记为未分类，稍后可在笔记里补），界面隐藏属性面板与反链等杂项；用命令「切换极简模式」随时开关",
+  "set.hideProps": "隐藏错题笔记的属性区",
+  "set.hidePropsDesc":
+    "查看错题笔记与答案页时，顶部不再显示 frontmatter 属性面板（id/学科/answerMode 等）。数据仍完整写入文件，仅隐藏显示；其他笔记不受影响",
+  "set.autoEmph": "自动开启题目显示强调",
+  "set.autoEmphDesc":
+    "新建/插入错题时自动把题目包进强调块，与答案块视觉配对；关闭则题目保持普通文字。也可选中文字后右键「题目显示强调」手动开关（toggle）",
+  "set.threshold": "长答案字符阈值",
+  "set.thresholdDesc": "答案超过该字数时建议拆分为独立答案页",
+  "set.mathSplit": "含展示型公式触发拆分",
+  "set.mathSplitDesc": "答案中含 $$…$$ 公式块时按长答案处理",
+  "set.imgSplit": "含图片触发拆分",
+  "set.imgSplitDesc": "默认关闭：照片/截图答案保留原地，遮罩揭晓体验更好",
+  "set.splitBehavior": "新建错题时的拆分行为",
+  "set.splitAsk": "询问我（默认）",
+  "set.splitAuto": "自动拆分",
+  "set.splitOff": "不拆分",
+  "dash.title": "错题仪表盘",
+  "dash.total": "错题总数",
+  "dash.week": "本周新增",
+  "dash.splitPages": "已拆答案页",
+  "dash.mastered": "已掌握",
+  "dash.subjects": "学科分布",
+  "dash.statuses": "复习状态",
+  "dash.heat": "近半年录入活跃",
+  "dash.empty": "还没有错题——先录一道吧！",
+  "dash.uncat": "未分类",
+  "dash.stPending": "待复习",
+  "dash.stReviewing": "复习中",
+  "dash.stMastered": "已掌握",
+  "dash.stArchived": "已归档",
+  "dash.heatTitle": "{date}：录入 {count} 道",
+  "dash.legendLess": "少",
+  "dash.legendMore": "多",
+  "mask.hint": "👆 点击显示答案",
+  "mask.remask": "重新遮住",
+  "qe.hasCallout": "选中区域包含 callout/引用行，无法直接强调题目。",
+  "qe.empty": "没有可强调的题目内容。",
+  "svc.noAnswer": "当前笔记中没有 [!answer] 答案块。",
+  "svc.alreadyPlaceholder": "当前笔记的答案已经是拆分后的占位链接。",
+  "svc.notLongEnough": "答案不算长（{chars} 字），无需拆分。",
+  "svc.answerExists": "答案页已存在（{path}）。如需重拆，请先删除或改名旧答案页。",
+  "svc.splitDone": "已拆分到 {path}。",
+} as const;
+
+export type MsgKey = keyof typeof zh;
+
+const en: Record<MsgKey, string> = {
+  "cmd.newMistake": "New mistake (with answer mask)",
+  "cmd.insertMistake": "Insert mistake here (with answer mask)",
+  "cmd.splitNote": "Split this note's inline answer into an answer page",
+  "cmd.toggleMinimal": "Toggle minimal mode",
+  "cmd.openDashboard": "Open mistake dashboard",
+  "menu.insert": "Insert mistake",
+  "menu.insertHere": "Insert here",
+  "menu.newPage": "New mistake page",
+  "menu.insertHereFlat": "Insert mistake · insert here",
+  "menu.newPageFlat": "Insert mistake · new mistake page",
+  "menu.emphasize": "Emphasize question",
+  "notice.openNoteFirst": "Open a note before inserting a mistake.",
+  "notice.minimalOn": "Minimal mode on.",
+  "notice.minimalOff": "Minimal mode off.",
+  "modal.newTitle": "New mistake",
+  "modal.insertTitle": "Insert mistake (current note)",
+  "modal.titleSuffix": " (minimal)",
+  "modal.subjectLabel": "Subject (required)",
+  "modal.subjectPh": "Math / Physics / English…",
+  "modal.sourceLabel": "Source (optional)",
+  "modal.sourcePh": "Midterm 2025-01 / Workbook P12…",
+  "modal.errorTypeLabel": "Error type (optional)",
+  "modal.errorTypePh": "Concept / Computation / Misreading…",
+  "modal.topicLabelFile": "Topic (used for the file name)",
+  "modal.topicLabelSplit": "Topic (used to name the answer page)",
+  "modal.topicPh": "e.g. Monotonicity (rename later)",
+  "modal.minimalNote":
+    "Minimal mode: only question and answer are needed; subject defaults to Uncategorized and can be filled in later",
+  "modal.questionLabel": "Question (Markdown / LaTeX)",
+  "modal.answerLabel": "Answer & notes (Markdown / LaTeX / paste screenshots)",
+  "modal.splitCheck": "Split into a separate answer page",
+  "modal.metaAuto": "{chars} chars · auto-split is on",
+  "modal.metaOff": "{chars} chars · splitting is off",
+  "modal.metaAsk": "{chars} chars",
+  "modal.suggestSplit": " · split recommended",
+  "modal.btnInsert": "Insert into current note",
+  "modal.btnCreate": "Create mistake",
+  "modal.busyInsert": "Inserting…",
+  "modal.busyCreate": "Creating…",
+  "modal.failInsert": "Insert failed",
+  "modal.failCreate": "Creation failed",
+  "modal.errInit": "Form not initialized",
+  "modal.errSubject": "Please fill in a subject.",
+  "modal.errContent": "Question or answer is required.",
+  "modal.errNoCtx": "No host note context — reopen from the context menu or command palette.",
+  "modal.noticeInsertedPage": "Mistake inserted — answer page: {path}",
+  "modal.noticeInsertedInline": "Mistake inserted in the current note.",
+  "modal.noticeCreated": "Mistake created: {path}",
+  "modal.imgSaveFail": "Failed to save image: {err}",
+  "set.heading": "Mistake Notebook · Settings",
+  "set.language": "Language",
+  "set.languageDesc": "Auto follows Obsidian's UI language; applies immediately",
+  "set.langAuto": "Auto (follow Obsidian)",
+  "set.langZh": "简体中文",
+  "set.langEn": "English",
+  "set.qRoot": "Mistake notes root folder",
+  "set.qRootDesc": "New mistakes go to root/subject/",
+  "set.aRoot": "Answer pages root folder",
+  "set.aRootDesc": "Where split long answers are stored",
+  "set.follow": "Answer pages follow the question folder",
+  "set.followDesc":
+    "When on, answer pages are created inside the question note's folder (optionally in a subfolder); when off, the root folder above is used. Only affects future notes — existing files are not moved",
+  "set.subfolder": "Create an answer subfolder in the question folder",
+  "set.subfolderDesc":
+    "When on, answer pages go to question-folder/{name}/; when off, they sit next to the question note",
+  "set.maskStyle": "Default mask style",
+  "set.maskStyleDesc": "Used when a note doesn't set maskStyle in its frontmatter",
+  "mask.blur": "Blur",
+  "mask.white": "White",
+  "mask.mosaic": "Mosaic",
+  "mask.black": "Black",
+  "set.minimal": "Minimal mode",
+  "set.minimalDesc":
+    "Capture needs only question and answer (subject defaults to Uncategorized, editable later); hides properties, backlinks etc. Toggle anytime via the command",
+  "set.hideProps": "Hide properties on mistake notes",
+  "set.hidePropsDesc":
+    "Hide the frontmatter panel on question/answer pages (id/subject/answerMode etc.). Data is still written to the file — display only; other notes are unaffected",
+  "set.autoEmph": "Auto-emphasize questions",
+  "set.autoEmphDesc":
+    "Wrap the question in an emphasis frame on new/inserted mistakes; off keeps plain text. Selected text can also be toggled via right-click",
+  "set.threshold": "Long-answer threshold",
+  "set.thresholdDesc": "Answers longer than this are recommended for splitting",
+  "set.mathSplit": "Split on display math",
+  "set.mathSplitDesc": "Answers with $$…$$ blocks count as long",
+  "set.imgSplit": "Split on images",
+  "set.imgSplitDesc": "Off by default: photo answers stay inline for masked reveal",
+  "set.splitBehavior": "Split behavior on capture",
+  "set.splitAsk": "Ask me (default)",
+  "set.splitAuto": "Auto split",
+  "set.splitOff": "Don't split",
+  "dash.title": "Mistake dashboard",
+  "dash.total": "Total mistakes",
+  "dash.week": "Added this week",
+  "dash.splitPages": "Answer pages",
+  "dash.mastered": "Mastered",
+  "dash.subjects": "Subjects",
+  "dash.statuses": "Review status",
+  "dash.heat": "Last 26 weeks of activity",
+  "dash.empty": "No mistakes yet — capture your first one!",
+  "dash.uncat": "Uncategorized",
+  "dash.stPending": "Pending",
+  "dash.stReviewing": "Reviewing",
+  "dash.stMastered": "Mastered",
+  "dash.stArchived": "Archived",
+  "dash.heatTitle": "{date}: {count} added",
+  "dash.legendLess": "Less",
+  "dash.legendMore": "More",
+  "mask.hint": "👆 Click to reveal",
+  "mask.remask": "Re-mask",
+  "qe.hasCallout": "Selection contains callout/quote lines and can't be emphasized.",
+  "qe.empty": "Nothing to emphasize.",
+  "svc.noAnswer": "This note has no [!answer] block.",
+  "svc.alreadyPlaceholder": "This note's answer is already a split placeholder link.",
+  "svc.notLongEnough": "Answer is not long enough ({chars} chars); no split needed.",
+  "svc.answerExists": "Answer page already exists ({path}). Rename or delete it first to re-split.",
+  "svc.splitDone": "Split to {path}.",
+};
+
+let current: UiLang = "zh";
+
+export function setCurrentLanguage(lang: UiLang): void {
+  current = lang;
+}
+
+/** 取当前语言文案；{var} 占位符由 vars 替换。 */
+export function t(key: MsgKey, vars?: Record<string, string | number>): string {
+  const text = (current === "zh" ? zh[key] : en[key]) ?? zh[key];
+  if (vars === undefined) return text;
+  return Object.entries(vars).reduce((acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)), text);
+}
+
+/** 中英字典 key 完整性自检（供单测调用）。 */
+export function dictionariesComplete(): boolean {
+  return (Object.keys(zh) as MsgKey[]).every((k) => en[k] !== undefined && en[k] !== "");
+}

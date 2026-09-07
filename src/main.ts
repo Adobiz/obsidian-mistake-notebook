@@ -14,6 +14,7 @@ import type { MistakeSettings } from "./settings";
 import { NewMistakeModal, type NewMistakeMode } from "./ui/NewMistakeModal";
 import { toggleQuestionEmphasis } from "./ui/questionEmphasis";
 import { DASHBOARD_VIEW_TYPE, MistakeDashboardView } from "./ui/dashboardView";
+import { detectObsidianLanguage, resolveLanguage, setCurrentLanguage, t } from "./i18n";
 
 export default class MistakeNotebookPlugin extends Plugin {
   /** 覆盖基类 Plugin.settings（见 obsidian 1.13+ 类型），用具体类型收窄。 */
@@ -32,54 +33,29 @@ export default class MistakeNotebookPlugin extends Plugin {
       this.app.workspace.on("active-leaf-change", () => this.updateMistakeViewClass()),
     );
 
-    // 阅读视图：遮住 [!answer] 答案块（模糊/纯白 + 点击揭晓）
+    // 阅读视图：遮住 [!answer] 答案块（四种风格 + 点击揭晓）
     this.registerMarkdownPostProcessor(
       createAnswerMaskPostProcessor(this.app, () => this.settings),
     );
 
     this.addSettingTab(new MistakeSettingTab(this.app, this));
 
-    // 仪表盘：左侧边栏视图 + ribbon 图标入口
+    // 仪表盘：左侧边栏视图 + ribbon 图标入口（tooltip 随启动语言，重载后更新）
     this.registerView(
       DASHBOARD_VIEW_TYPE,
       (leaf) => new MistakeDashboardView(leaf, () => this.settings),
     );
-    this.addRibbonIcon("bar-chart-3", "错题仪表盘", () => void this.activateDashboard());
-    this.addCommand({
-      id: "open-dashboard",
-      name: "打开错题仪表盘",
-      callback: () => void this.activateDashboard(),
-    });
+    this.addRibbonIcon("bar-chart-3", t("dash.title"), () => void this.activateDashboard());
 
-    this.addCommand({
-      id: "create-mistake",
-      name: "新建错题（含答案遮罩）",
-      callback: () => this.openNewMistakeModal("create"),
-    });
-
-    this.addCommand({
-      id: "insert-mistake-here",
-      name: "在当前位置插入错题（含答案遮罩）",
-      editorCallback: (editor, view) => {
-        const hostFile = view.file;
-        if (hostFile === null) {
-          new Notice("请先打开一篇笔记再插入错题。");
-          return;
-        }
-        this.openNewMistakeModal("insert", { editor, hostFile });
-      },
-    });
-
-    // 编辑视图右键菜单：一级入口"插入错题"，下挂两个二级选项，与命令面板共用逻辑。
-    // 注意 editor-menu 只在编辑视图（源码/实时预览）触发，阅读视图无公开注入 API。
-    // 二级菜单（setSubmenu）已在运行时存在但尚未进官方类型（1.13.1），做存在性探测，
-    // 老版本自动降级为两个平铺一级项。
+    // 编辑视图右键菜单：一级入口"插入错题"（二级：就地插入/新建页）+ 题目强调。
+    // editor-menu 只在编辑视图（源码/实时预览）触发；菜单每次右键即时取文案（t()），
+    // 语言切换无需重建。setSubmenu 尚未进官方类型（1.13.1），做存在性探测降级。
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu, editor, view) => {
         const hostFile = view.file;
         const openInsert = (): void => {
           if (hostFile === null) {
-            new Notice("请先打开一篇笔记再插入错题。");
+            new Notice(t("notice.openNoteFirst"));
             return;
           }
           this.openNewMistakeModal("insert", { editor, hostFile });
@@ -87,23 +63,23 @@ export default class MistakeNotebookPlugin extends Plugin {
         const openCreate = (): void => this.openNewMistakeModal("create");
 
         menu.addItem((item) => {
-          item.setTitle("插入错题").setIcon("file-plus").setSection("mistake-notebook");
+          item.setTitle(t("menu.insert")).setIcon("file-plus").setSection("mistake-notebook");
           const host = item as MenuItem & { setSubmenu?: () => Menu };
           if (typeof host.setSubmenu === "function") {
             const sub = host.setSubmenu();
-            sub.addItem((si) => si.setTitle("在当前位置插入").onClick(openInsert));
-            sub.addItem((si) => si.setTitle("新建错题页面").onClick(openCreate));
+            sub.addItem((si) => si.setTitle(t("menu.insertHere")).onClick(openInsert));
+            sub.addItem((si) => si.setTitle(t("menu.newPage")).onClick(openCreate));
           } else {
             menu.addItem((a) =>
               a
-                .setTitle("插入错题 · 在当前位置插入")
+                .setTitle(t("menu.insertHereFlat"))
                 .setIcon("file-plus")
                 .setSection("mistake-notebook")
                 .onClick(openInsert),
             );
             menu.addItem((b) =>
               b
-                .setTitle("插入错题 · 新建错题页面")
+                .setTitle(t("menu.newPageFlat"))
                 .setIcon("file-plus")
                 .setSection("mistake-notebook")
                 .onClick(openCreate),
@@ -114,7 +90,7 @@ export default class MistakeNotebookPlugin extends Plugin {
         // 独立入口：选中题目文字后强调/取消强调（toggle），无选中置灰
         menu.addItem((item) =>
           item
-            .setTitle("题目显示强调")
+            .setTitle(t("menu.emphasize"))
             .setIcon("highlighter")
             .setSection("mistake-notebook")
             .setDisabled(editor.getSelection() === "")
@@ -123,15 +99,40 @@ export default class MistakeNotebookPlugin extends Plugin {
       }),
     );
 
+    // 语言：解析并注册全部命令（命令名随语言，切换后重新注册覆盖）
+    this.applyLanguage();
+  }
+
+  /** 命令面板入口全部在这里注册；语言切换时重调（同 id 覆盖旧命令）。 */
+  registerCommands(): void {
+    this.addCommand({
+      id: "create-mistake",
+      name: t("cmd.newMistake"),
+      callback: () => this.openNewMistakeModal("create"),
+    });
+
+    this.addCommand({
+      id: "insert-mistake-here",
+      name: t("cmd.insertMistake"),
+      editorCallback: (editor, view) => {
+        const hostFile = view.file;
+        if (hostFile === null) {
+          new Notice(t("notice.openNoteFirst"));
+          return;
+        }
+        this.openNewMistakeModal("insert", { editor, hostFile });
+      },
+    });
+
     this.addCommand({
       id: "toggle-minimal-mode",
-      name: "切换极简模式",
+      name: t("cmd.toggleMinimal"),
       callback: () => void this.toggleMinimalMode(),
     });
 
     this.addCommand({
       id: "split-current-note-answer",
-      name: "把当前笔记的内联答案拆分为答案页",
+      name: t("cmd.splitNote"),
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         if (file === null) return false;
@@ -144,6 +145,22 @@ export default class MistakeNotebookPlugin extends Plugin {
         return true;
       },
     });
+
+    this.addCommand({
+      id: "open-dashboard",
+      name: t("cmd.openDashboard"),
+      callback: () => void this.activateDashboard(),
+    });
+  }
+
+  /** 语言生效：更新当前语言 → 重注册命令 → 刷新已打开的仪表盘。 */
+  applyLanguage(): void {
+    setCurrentLanguage(resolveLanguage(this.settings.language, detectObsidianLanguage()));
+    this.registerCommands();
+    for (const leaf of this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)) {
+      const view = leaf.view;
+      if (view instanceof MistakeDashboardView) view.renderDashboard();
+    }
   }
 
   override onunload(): void {
@@ -180,7 +197,7 @@ export default class MistakeNotebookPlugin extends Plugin {
     this.settings.minimalMode = !this.settings.minimalMode;
     await this.saveSettings();
     this.applyMinimalMode();
-    new Notice(`极简模式已${this.settings.minimalMode ? "开启" : "关闭"}。`);
+    new Notice(this.settings.minimalMode ? t("notice.minimalOn") : t("notice.minimalOff"));
   }
 
   /** 打开（或聚焦已打开的）左侧仪表盘视图。 */

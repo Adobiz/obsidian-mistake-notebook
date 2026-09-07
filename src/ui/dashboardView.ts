@@ -1,7 +1,7 @@
 /**
  * 错题仪表盘（左边栏 ItemView）：学科分类、数量、状态分布与
  * GitHub 风格的录入活跃热力格子。数据全部来自 metadataCache（零文件 IO），
- * 统计逻辑在领域层 stats.ts（纯函数，可单测）。
+ * 统计逻辑在领域层 stats.ts（纯函数，可单测）。文案走 i18n。
  */
 
 import { ItemView } from "obsidian";
@@ -15,14 +15,16 @@ import {
   type MistakeRecord,
 } from "../domain/stats";
 import type { MistakeSettings } from "../settings";
+import { t, type MsgKey } from "../i18n";
 
 export const DASHBOARD_VIEW_TYPE = "mt-dashboard";
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "待复习",
-  reviewing: "复习中",
-  mastered: "已掌握",
-  archived: "已归档",
+const STATUS_KEYS = ["pending", "reviewing", "mastered", "archived"] as const;
+const STATUS_T_KEY: Record<(typeof STATUS_KEYS)[number], MsgKey> = {
+  pending: "dash.stPending",
+  reviewing: "dash.stReviewing",
+  mastered: "dash.stMastered",
+  archived: "dash.stArchived",
 };
 
 export class MistakeDashboardView extends ItemView {
@@ -38,7 +40,7 @@ export class MistakeDashboardView extends ItemView {
   }
 
   override getDisplayText(): string {
-    return "错题仪表盘";
+    return t("dash.title");
   }
 
   override getIcon(): string {
@@ -91,22 +93,19 @@ export class MistakeDashboardView extends ItemView {
     // ---- 概览 ----
     const overview = root.createEl("div", { cls: "mt-dash-overview" });
     const mkStat = (label: string, value: string | number): void => {
-      overview
-        .createDiv({ cls: "mt-dash-stat" })
-        .append(
-          createEl("div", { cls: "mt-dash-stat-value", text: String(value) }),
-          createEl("div", { cls: "mt-dash-stat-label", text: label }),
-        );
+      const stat = overview.createDiv({ cls: "mt-dash-stat" });
+      stat.createDiv({ cls: "mt-dash-stat-value", text: String(value) });
+      stat.createDiv({ cls: "mt-dash-stat-label", text: label });
     };
-    mkStat("错题总数", records.length);
-    mkStat("本周新增", thisWeek);
-    mkStat("已拆答案页", splitCount);
-    mkStat("已掌握", statuses.get("mastered") ?? 0);
+    mkStat(t("dash.total"), records.length);
+    mkStat(t("dash.week"), thisWeek);
+    mkStat(t("dash.splitPages"), splitCount);
+    mkStat(t("dash.mastered"), statuses.get("mastered") ?? 0);
 
     // ---- 学科分布 ----
-    root.createEl("h4", { text: "学科分布", cls: "mt-dash-heading" });
+    root.createEl("h4", { text: t("dash.subjects"), cls: "mt-dash-heading" });
     if (subjects.length === 0) {
-      root.createDiv({ cls: "mt-dash-empty", text: "还没有错题——先录一道吧！" });
+      root.createDiv({ cls: "mt-dash-empty", text: t("dash.empty") });
     } else {
       const max = subjects[0]?.count ?? 1;
       const list = root.createEl("div", { cls: "mt-dash-subjects" });
@@ -123,17 +122,17 @@ export class MistakeDashboardView extends ItemView {
     }
 
     // ---- 状态分布 ----
-    root.createEl("h4", { text: "复习状态", cls: "mt-dash-heading" });
+    root.createEl("h4", { text: t("dash.statuses"), cls: "mt-dash-heading" });
     const statusRow = root.createEl("div", { cls: "mt-dash-statuses" });
-    for (const key of ["pending", "reviewing", "mastered", "archived"] as const) {
+    for (const key of STATUS_KEYS) {
       statusRow.createSpan({
         cls: `mt-dash-status mt-dash-status-${key}`,
-        text: `${STATUS_LABELS[key] ?? key} ${statuses.get(key) ?? 0}`,
+        text: `${t(STATUS_T_KEY[key])} ${statuses.get(key) ?? 0}`,
       });
     }
 
     // ---- 活跃热力格子（近 26 周，按录入时间） ----
-    root.createEl("h4", { text: "近半年录入活跃", cls: "mt-dash-heading" });
+    root.createEl("h4", { text: t("dash.heat"), cls: "mt-dash-heading" });
     const grid = buildHeatmap(
       records.map((r) => r.createdAt),
       26,
@@ -148,16 +147,18 @@ export class MistakeDashboardView extends ItemView {
         colEl.createDiv({
           cls: `mt-dash-heat-cell ${cls}`,
           attr: {
-            title: cell.future ? "" : `${localDayKey(cell.date)}：录入 ${cell.count} 道`,
+            title: cell.future
+              ? ""
+              : t("dash.heatTitle", { date: localDayKey(cell.date), count: cell.count }),
           },
         });
       }
     }
     const legend = root.createDiv({ cls: "mt-dash-heat-legend" });
-    legend.appendText("少 ");
+    legend.appendText(`${t("dash.legendLess")} `);
     for (const lv of [0, 1, 2, 3, 4]) {
       legend.createDiv({ cls: `mt-dash-heat-cell mt-heat-${lv}` });
     }
-    legend.appendText(" 多");
+    legend.appendText(` ${t("dash.legendMore")}`);
   }
 }

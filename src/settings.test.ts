@@ -42,4 +42,10 @@ describe("normalizeSettings", () => {
       DEFAULT_SETTINGS.hideMistakeProperties,
     );
   });
+
+  it("language 只接受 auto/zh/en", () => {
+    expect(normalizeSettings({ language: "en" }).language).toBe("en");
+    expect(normalizeSettings({ language: "fr" }).language).toBe(DEFAULT_SETTINGS.language);
+    expect(normalizeSettings({}).language).toBe("auto");
+  });
 });

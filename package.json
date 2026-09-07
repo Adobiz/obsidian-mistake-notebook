@@ -1,6 +1,6 @@
 {
   "name": "obsidian-mistake-notebook",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Obsidian mistake notebook: mask answers (blur/white/mosaic/black), click to reveal, auto-split long answers to a linked page, insert at cursor, question emphasis, minimal mode. Data stays in plain Markdown — no lock-in.",
   "type": "module",
   "main": "main.js",
