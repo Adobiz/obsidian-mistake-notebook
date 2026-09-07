@@ -28,6 +28,7 @@ const IMPLEMENTED_MASK_STYLES: readonly MaskStyle[] = ["blur", "white", "mosaic"
 function ensurePixelateFilterDef(): void {
   if (document.getElementById("mt-pixelate") !== null) return;
   const NS = "http://www.w3.org/2000/svg";
+  // createEl 无法创建 SVG 命名空间元素，只能走 createElementNS
   const el = (tag: string): SVGElement => document.createElementNS(NS, tag);
   const svg = el("svg");
   svg.setAttribute("width", "0");

@@ -165,9 +165,9 @@ export default class MistakeNotebookPlugin extends Plugin {
   private isMistakeFile(): boolean {
     const file = this.app.workspace.getActiveFile();
     if (file === null) return false;
-    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as
-      Record<string, unknown> | undefined;
-    if (fm === undefined) return false;
+    const rawFm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+    if (rawFm === undefined) return false;
+    const fm: Record<string, unknown> = rawFm;
     const id = fm["id"];
     return (typeof id === "string" && id.startsWith("mt-")) || fm["mt-answer-of"] !== undefined;
   }
@@ -189,8 +189,10 @@ export default class MistakeNotebookPlugin extends Plugin {
     const existing = workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
     const leaf = existing[0] ?? workspace.getLeftLeaf(false);
     if (leaf === null) return;
-    await leaf.setViewState({ type: DASHBOARD_VIEW_TYPE, active: true });
-    workspace.revealLeaf(leaf);
+    // 注意：revealLeaf/@since 1.7.2、ViewState.active/@since 1.7.2 都超出 minAppVersion，
+    // 用 0.16.3 就有的 setActiveLeaf 完成激活
+    await leaf.setViewState({ type: DASHBOARD_VIEW_TYPE });
+    workspace.setActiveLeaf(leaf, { focus: true });
   }
 
   /** 录入入口统一走这里：命令面板与编辑器右键菜单共用。 */

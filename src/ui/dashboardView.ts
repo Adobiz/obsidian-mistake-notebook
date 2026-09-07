@@ -55,8 +55,9 @@ export class MistakeDashboardView extends ItemView {
   private collectRecords(): MistakeRecord[] {
     const records: MistakeRecord[] = [];
     for (const file of this.app.vault.getMarkdownFiles()) {
-      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      if (fm === undefined) continue;
+      const rawFm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+      if (rawFm === undefined) continue;
+      const fm: Record<string, unknown> = rawFm;
       const id = fm["id"];
       if (typeof id !== "string" || !id.startsWith("mt-")) continue;
       records.push({
