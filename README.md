@@ -27,7 +27,13 @@ A mistake notebook (错题本) for Obsidian, built for exam-driven studying: whe
 - 🟥 **Question emphasis frame** — questions are wrapped in a black-outlined callout that visually pairs with the answer block; select text and right-click to toggle it manually.
 - 🧘 **Minimal mode** — one command hides properties, backlinks and other chrome; the capture form reduces to just question and answer.
 - 🖼 **Paste screenshots** — ⌘V an image straight into the answer field; it is saved to your configured attachment folder and linked automatically.
+- 📊 **Mistake dashboard** — a left-sidebar view with subject distribution, counts, review status, and a GitHub-style grid of your capture activity over the last 26 weeks.
 - 📂 **No lock-in** — one mistake is one plain Markdown note + frontmatter: editable, scriptable, exportable.
+
+<p align="center">
+  <img src="docs/screenshots/mask.png" width="46%" alt="Question emphasis and answer masking" />
+  <img src="docs/screenshots/dashboard.png" width="46%" alt="Mistake dashboard" />
+</p>
 
 ## 🚀 Install
 
