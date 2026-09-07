@@ -108,6 +108,10 @@
 }
 
 /* ---------- 极简模式：只留内容（隐藏属性面板/反链） ---------- */
+/* 选择器链镜像并加长 Obsidian 的 .show-properties 规则：不加 !important 也要赢过
+   .markdown-source-view.is-live-preview.show-properties .metadata-container:not(.mod-error) */
+body.mt-minimal .markdown-source-view.is-live-preview.show-properties .metadata-container,
+body.mt-minimal .markdown-preview-view.show-properties .metadata-container,
 body.mt-minimal .metadata-container,
 body.mt-minimal .frontmatter-container,
 body.mt-minimal .embedded-backlinks {
@@ -115,6 +119,12 @@ body.mt-minimal .embedded-backlinks {
 }
 
 /* ---------- 隐藏错题/答案页顶部的属性面板（数据仍完整写入，仅不显示） ---------- */
+body.mt-hide-properties.mt-viewing-mistake
+  .markdown-source-view.is-live-preview.show-properties
+  .metadata-container,
+body.mt-hide-properties.mt-viewing-mistake
+  .markdown-preview-view.show-properties
+  .metadata-container,
 body.mt-hide-properties.mt-viewing-mistake .metadata-container,
 body.mt-hide-properties.mt-viewing-mistake .frontmatter-container {
   display: none;
