@@ -112,6 +112,17 @@ export class MistakeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName(t("set.simplifiedDashboard"))
+      .setDesc(t("set.simplifiedDashboardDesc"))
+      .addToggle((tg) =>
+        tg.setValue(this.plugin.settings.simplifiedMode).onChange(async (v) => {
+          this.plugin.settings.simplifiedMode = v;
+          await this.plugin.saveSettings();
+          this.plugin.applySimplifiedMode(); // 即时生效：隐藏/恢复复习块与仪表盘
+        }),
+      );
+
+    new Setting(containerEl)
       .setName(t("set.hideProps"))
       .setDesc(t("set.hidePropsDesc"))
       .addToggle((tg) =>
@@ -177,5 +188,15 @@ export class MistakeSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    new Setting(containerEl)
+      .setName(t("set.autoReview"))
+      .setDesc(t("set.autoReviewDesc"))
+      .addToggle((tg) =>
+        tg.setValue(this.plugin.settings.autoReviewOnReveal).onChange(async (v) => {
+          this.plugin.settings.autoReviewOnReveal = v;
+          await this.plugin.saveSettings();
+        }),
+      );
   }
 }

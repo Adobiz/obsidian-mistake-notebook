@@ -19,13 +19,14 @@ import { detectObsidianLanguage, resolveLanguage, setCurrentLanguage, t } from "
 export default class MistakeNotebookPlugin extends Plugin {
   /** 覆盖基类 Plugin.settings（见 obsidian 1.13+ 类型），用具体类型收窄。 */
   override settings: MistakeSettings = DEFAULT_SETTINGS;
-  private service!: MistakeNoteService;
+  service!: MistakeNoteService;
 
   override async onload(): Promise<void> {
     await this.loadSettings();
     this.service = new MistakeNoteService(this.app, () => this.settings);
     this.applyMinimalMode();
     this.applyPropertyVisibility();
+    this.applySimplifiedMode();
     this.updateMistakeViewClass();
     // 切换笔记时更新"正在看错题/答案页"标记，供属性区隐藏的 CSS 作用域使用
     this.registerEvent(this.app.workspace.on("file-open", () => this.updateMistakeViewClass()));
@@ -34,17 +35,28 @@ export default class MistakeNotebookPlugin extends Plugin {
     );
 
     // 阅读视图：遮住 [!answer] 答案块（四种风格 + 点击揭晓）
+    // 复习挂钩：揭晓自动记录（设置开关，默认开）+ 标题栏「完成复习」按钮（始终可用）
     this.registerMarkdownPostProcessor(
-      createAnswerMaskPostProcessor(this.app, () => this.settings),
+      createAnswerMaskPostProcessor(this.app, () => this.settings, {
+        onRevealed: (file, total) => {
+          if (
+            this.settings.autoReviewOnReveal &&
+            !this.settings.simplifiedMode &&
+            this.isMistakeFileFor(file)
+          ) {
+            void this.recordNextReview(file, total ?? 1);
+          }
+        },
+        onComplete: (file, index, total) => {
+          if (this.isMistakeFileFor(file)) void this.recordReview(file, index, total);
+        },
+      }),
     );
 
     this.addSettingTab(new MistakeSettingTab(this.app, this));
 
     // 仪表盘：左侧边栏视图 + ribbon 图标入口（tooltip 随启动语言，重载后更新）
-    this.registerView(
-      DASHBOARD_VIEW_TYPE,
-      (leaf) => new MistakeDashboardView(leaf, () => this.settings),
-    );
+    this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new MistakeDashboardView(leaf, this));
     this.addRibbonIcon("bar-chart-3", t("dash.title"), () => void this.activateDashboard());
 
     // 编辑视图右键菜单：一级入口"插入错题"（二级：就地插入/新建页）+ 题目强调。
@@ -173,15 +185,52 @@ export default class MistakeNotebookPlugin extends Plugin {
     document.body.classList.toggle("mt-minimal", this.settings.minimalMode);
   }
 
+  /** 简化模式：仪表盘精简 + 揭晓自动记录停用 + 笔记内「完成复习」块隐藏（body class 控 CSS）。 */
+  applySimplifiedMode(): void {
+    document.body.classList.toggle("mt-hide-review", this.settings.simplifiedMode);
+    for (const leaf of this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE)) {
+      const view = leaf.view;
+      if (view instanceof MistakeDashboardView) view.renderDashboard();
+    }
+  }
+
   /** 属性区隐藏只影响显示层：frontmatter 数据始终完整写入文件。 */
   applyPropertyVisibility(): void {
     document.body.classList.toggle("mt-hide-properties", this.settings.hideMistakeProperties);
   }
 
+  /** 块级完成复习：标记页内第 index 道（共 total 道）；未传下标时自动完成第一个未完成块。 */
+  private async recordReview(file: TFile, index?: number, total?: number): Promise<void> {
+    const result =
+      index !== undefined && total !== undefined
+        ? await this.service.markReviewedAt(file, index, total)
+        : await this.service.markNextUnreviewed(file, total ?? 1);
+    if (result === null) return;
+    new Notice(
+      result.done
+        ? t("review.allDone")
+        : t("review.progress", { done: result.doneCount, total: result.total }),
+    );
+  }
+
+  /** 揭晓自动记录：标记本页第一个未完成的错题块（total=页内块数）。 */
+  private async recordNextReview(file: TFile, total: number): Promise<void> {
+    const result = await this.service.markNextUnreviewed(file, total);
+    if (result === null) return;
+    new Notice(
+      result.done
+        ? t("review.allDone")
+        : t("review.progress", { done: result.doneCount, total: result.total }),
+    );
+  }
+
   /** 判断当前活动笔记是否是错题笔记（id: mt-*）或答案页（mt-answer-of）。 */
   private isMistakeFile(): boolean {
     const file = this.app.workspace.getActiveFile();
-    if (file === null) return false;
+    return file !== null && this.isMistakeFileFor(file);
+  }
+
+  private isMistakeFileFor(file: TFile): boolean {
     const rawFm = this.app.metadataCache.getFileCache(file)?.frontmatter;
     if (rawFm === undefined) return false;
     const fm: Record<string, unknown> = rawFm;
@@ -212,8 +261,8 @@ export default class MistakeNotebookPlugin extends Plugin {
     workspace.setActiveLeaf(leaf, { focus: true });
   }
 
-  /** 录入入口统一走这里：命令面板与编辑器右键菜单共用。 */
-  private openNewMistakeModal(
+  /** 录入入口统一走这里：命令面板、编辑器右键菜单与仪表盘共用。 */
+  openNewMistakeModal(
     mode: NewMistakeMode = "create",
     ctx?: {
       editor: Editor;

@@ -16,6 +16,7 @@ import { parseMistakeFrontmatter } from "../domain/frontmatter";
 import type { MaskStyle } from "../domain/types";
 import type { MistakeSettings } from "../settings";
 import { t } from "../i18n";
+import { listToDoneSet } from "../domain/review";
 
 /** 当前已实现的遮罩风格（mosaic 依赖下方注入的 #mt-pixelate SVG 滤镜）。 */
 const IMPLEMENTED_MASK_STYLES: readonly MaskStyle[] = ["blur", "white", "mosaic", "black"];
@@ -81,7 +82,36 @@ function isPlaceholderCallout(callout: HTMLElement): boolean {
   return !hasExtraText;
 }
 
-export function createAnswerMaskPostProcessor(app: App, getSettings: () => MistakeSettings) {
+/**
+ * 页内错题总数 = [!answer] 答案块数量（含拆分占位形态）。
+ * 不能数 mt-review 块——旧页面的块是后来才随模板生成的，数它会把多题页当成 1 题。
+ */
+function pageReviewCount(docRoot: HTMLElement | null): number {
+  if (docRoot === null) return 1;
+  return docRoot.querySelectorAll(".callout[data-callout='answer']").length || 1;
+}
+
+/** 复习块标记为已完成（视觉态：浅色 + 文案替换）。 */
+function markReviewDone(block: HTMLElement): void {
+  block.addClass("mt-review-done");
+  const title = block.querySelector<HTMLElement>(":scope > .callout-title");
+  title?.setText(t("review.alreadyDone"));
+}
+
+export interface AnswerMaskHooks {
+  /** 揭晓答案时（用于"自动记录复习"）。非错题页不会触发（由调用方过滤）。 */
+  /** total=本页错题块数（用于自动记录时整页判定）。 */
+  onRevealed?: (file: TFile, total?: number) => void;
+  /** 「完成复习」按钮点击时。 */
+  /** index/total=页内第几道与总数（未传时由调用方自行选定，如回退条）。 */
+  onComplete?: (file: TFile, index?: number, total?: number) => void;
+}
+
+export function createAnswerMaskPostProcessor(
+  app: App,
+  getSettings: () => MistakeSettings,
+  hooks: AnswerMaskHooks = {},
+) {
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext): void => {
     ensurePixelateFilterDef();
     const settings = getSettings();
@@ -90,6 +120,47 @@ export function createAnswerMaskPostProcessor(app: App, getSettings: () => Mista
       file instanceof TFile
         ? parseMistakeFrontmatter(app.metadataCache.getFileCache(file)?.frontmatter)
         : parseMistakeFrontmatter(undefined);
+
+    // 视图根：阅读视图（reading/preview）与实时预览（source-view）都算；
+    // 块序号/页块数必须在此范围内统计，否则 LP 下 el 只有单个块 → total=1 → 点谁都"全部完成"
+    const docRoot = el.closest<HTMLElement>(
+      ".markdown-reading-view, .markdown-preview-view, .markdown-source-view.is-live-preview, .workspace-leaf-content",
+    );
+
+    // 笔记内「完成复习」块（新建错题时自动生成）：点击推进状态；已复习显示完成态。
+    const reviewBlocks = el.querySelectorAll<HTMLElement>(".callout[data-callout='mt-review']");
+    for (const block of reviewBlocks) {
+      if (block.dataset.mtReviewBound === "1") continue;
+      block.dataset.mtReviewBound = "1";
+      block.addClass("mt-review-callout");
+      // 块级完成态：该块在 mt-review-list 中为 done（或整页 mastered）时显示"已复习"
+      const doneIdx = Array.from(
+        (docRoot ?? el).querySelectorAll<HTMLElement>(".callout[data-callout='mt-review']"),
+      ).indexOf(block);
+      const rawFm2 =
+        file instanceof TFile ? app.metadataCache.getFileCache(file)?.frontmatter : undefined;
+      // 完成集合：新字段 mt-review-done；兼容旧 mt-review-list 转换
+      const doneSet = Array.isArray(rawFm2?.["mt-review-done"])
+        ? new Set(rawFm2["mt-review-done"].filter((x): x is number => typeof x === "number"))
+        : Array.isArray(rawFm2?.["mt-review-list"])
+          ? new Set(
+              listToDoneSet(
+                rawFm2["mt-review-list"].filter((s): s is string => typeof s === "string"),
+              ),
+            )
+          : new Set<number>();
+      if (fm.status === "mastered" || doneSet.has(doneIdx)) markReviewDone(block);
+      block.addEventListener("click", () => {
+        markReviewDone(block);
+        if (file instanceof TFile) {
+          // 块级粒度：按文档顺序算出当前块下标与总数，页面内全部完成才算页完成
+          const all = Array.from(
+            (docRoot ?? el).querySelectorAll<HTMLElement>(".callout[data-callout='mt-review']"),
+          );
+          hooks.onComplete?.(file, all.indexOf(block), pageReviewCount(docRoot));
+        }
+      });
+    }
 
     const callouts = Array.from(
       el.querySelectorAll<HTMLElement>(".callout[data-callout='answer']"),
@@ -118,6 +189,7 @@ export function createAnswerMaskPostProcessor(app: App, getSettings: () => Mista
       hint.addEventListener("click", (ev) => {
         ev.stopPropagation();
         callout.classList.add("is-revealed");
+        if (file instanceof TFile) hooks.onRevealed?.(file, pageReviewCount(docRoot));
       });
       remask.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -130,6 +202,7 @@ export function createAnswerMaskPostProcessor(app: App, getSettings: () => Mista
         }
         if (!callout.classList.contains("is-revealed")) {
           callout.classList.add("is-revealed");
+          if (file instanceof TFile) hooks.onRevealed?.(file, pageReviewCount(docRoot));
         }
       });
     }

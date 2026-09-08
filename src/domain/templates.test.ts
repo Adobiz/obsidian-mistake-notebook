@@ -34,6 +34,7 @@ describe("buildQuestionSource", () => {
     expect(src).toContain('subject: "数学"');
     expect(src).toContain('answerMode: "inline"');
     expect(src).toContain("# 函数单调性");
+    expect(src).toContain("> [!mt-review] 完成复习");
     expect(src).toContain("> [!answer] 答案");
     expect(src).toContain("> 选 A");
     // 生成的整篇源码应能被 findAnswerBlock 再次解析（可回读保证）

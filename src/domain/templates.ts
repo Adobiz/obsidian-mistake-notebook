@@ -80,10 +80,14 @@ export function buildQuestionSource(
       : opts.questionEmphasis
         ? buildQuestionSection(opts.question)
         : opts.question.trim();
+  // 复习块：新建错题页自带唯一的"完成复习"入口（postprocessor 负责交互）
+  const reviewBlock = `> [!mt-review] ${t("review.completeBtn")}`;
   const parts = [
     ...yamlLines(fm),
     "",
     `# ${opts.topic}`,
+    "",
+    reviewBlock,
     "",
     questionBlock,
     "",

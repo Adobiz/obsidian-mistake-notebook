@@ -102,3 +102,86 @@ export function heatLevel(count: number): number {
   if (count >= 1) return 1;
   return 0;
 }
+
+/** 记录的"最近活动时间"：updatedAt 优先，缺失回退 createdAt；两者都无效返回 null。 */
+export function lastActivityOf(r: MistakeRecord): Date | null {
+  for (const iso of [r.updatedAt, r.createdAt]) {
+    if (iso === "") continue;
+    const d = new Date(iso);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
+/**
+ * 积灰错题：status 不是 mastered/archived、且最近活动时间早于
+ * today - staleDays 天的数量。updatedAt 缺失时回退 createdAt。
+ */
+export function staleCount(records: MistakeRecord[], today: Date, staleDays = 30): number {
+  const cutoff = new Date(today);
+  cutoff.setDate(today.getDate() - staleDays);
+  return records.filter((r) => {
+    if (r.status === "mastered" || r.status === "archived") return false;
+    const last = lastActivityOf(r);
+    return last !== null && last.getTime() < cutoff.getTime();
+  }).length;
+}
+
+/** 最近 weeks 周的每周新增计数（index 0 = 最早一周，最后一项 = 本周）。 */
+export function weeklyAdded(records: MistakeRecord[], weeks: number, today: Date): number[] {
+  const counts = new Array<number>(weeks).fill(0);
+  const weekStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() - today.getDay(),
+  );
+  for (const r of records) {
+    if (r.createdAt === "") continue;
+    const d = new Date(r.createdAt);
+    if (Number.isNaN(d.getTime()) || d.getTime() < weekStart.getTime()) continue;
+    const diffDays = Math.floor((d.getTime() - weekStart.getTime()) / 86_400_000);
+    const weekIndex = weeks - 1 - Math.floor(diffDays / 7);
+    if (weekIndex >= 0 && weekIndex < weeks) counts[weekIndex] = (counts[weekIndex] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export interface RecordFilter {
+  /** null/undefined = 不筛选。subject 为 "未分类" 时匹配空学科。 */
+  subject?: string | null;
+  status?: string | null;
+}
+
+/**
+ * 按学科/状态筛选（供仪表盘列表联动）。
+ * status 支持两态："pending"=待复习、"done"=已复习（非 pending 均算已复习）；
+ * 也可按字面值匹配（兼容旧四态按值筛选的调用）。
+ */
+export function filterRecords<T extends MistakeRecord>(records: T[], filter: RecordFilter): T[] {
+  return records.filter((r) => {
+    if (filter.subject !== null && filter.subject !== undefined) {
+      const key = r.subject.trim() === "" ? "未分类" : r.subject;
+      if (key !== filter.subject) return false;
+    }
+    if (filter.status !== null && filter.status !== undefined) {
+      const current = r.status.trim() === "" ? "pending" : r.status;
+      if (filter.status === "done") {
+        if (current === "pending") return false;
+      } else if (filter.status === "pending") {
+        if (current !== "pending") return false;
+      } else if (current !== filter.status) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+/** 按最近活动时间降序（新的在前；无时间的沉底）。 */
+export function sortByRecency<T extends MistakeRecord>(records: T[]): T[] {
+  return [...records].sort((a, b) => {
+    const ta = lastActivityOf(a)?.getTime() ?? -1;
+    const tb = lastActivityOf(b)?.getTime() ?? -1;
+    return tb - ta;
+  });
+}

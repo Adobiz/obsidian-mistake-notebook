@@ -28,6 +28,7 @@ import {
   uniquifyFileBase,
 } from "../domain/naming";
 import { parseMistakeFrontmatter } from "../domain/frontmatter";
+import { applyDoneSet, listToDoneSet } from "../domain/review";
 import { replaceAnswerBlockWithPlaceholder, shouldSplit } from "../domain/splitRules";
 import type { MistakeSettings } from "../settings";
 import { toSplitRules } from "../settings";
@@ -207,7 +208,9 @@ export class MistakeNoteService {
       question === ""
         ? []
         : [settings.autoQuestionEmphasis ? buildQuestionSection(question) : question, ""];
-    const block = [...questionPart, answerSection, ""].join("\n");
+    // 插入的错题自带「完成复习」块（与新建错题页一致）
+    const reviewPart = [`> [!mt-review] ${t("review.completeBtn")}`, ""];
+    const block = [...reviewPart, ...questionPart, answerSection, ""].join("\n");
     return { block, answerPath };
   }
 
@@ -289,6 +292,88 @@ export class MistakeNoteService {
     });
 
     return { ok: true, message: t("svc.splitDone", { path: answerPath }) };
+  }
+
+  /**
+   * 块级完成复习：页面内第 index 个错题块（共 total 个）标记 done；
+   * 全部完成时页状态才置 mastered（已复习），否则保持 pending。返回推进信息。
+   */
+  /**
+   * 完成复习（完成集合模型）：页面总题数 total 由 postprocessor 按答案块数统计传入；
+   * 把第 index 块加入完成集合（去重），集合大小 ≥ total 时页面完成（status=mastered）。
+   */
+  async markReviewedAt(
+    file: TFile,
+    index: number,
+    total: number,
+  ): Promise<{ done: boolean; doneCount: number; total: number } | null> {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const rawFm = cache?.frontmatter;
+    if (rawFm === undefined || total < 1) return null;
+    const fm: Record<string, unknown> = rawFm;
+    // 读取完成集合：新字段 mt-review-done；兼容旧字段 mt-review-list（定长数组）转换
+    const doneList = Array.isArray(fm["mt-review-done"])
+      ? fm["mt-review-done"].filter((x): x is number => typeof x === "number")
+      : Array.isArray(fm["mt-review-list"])
+        ? listToDoneSet(fm["mt-review-list"].filter((s): s is string => typeof s === "string"))
+        : [];
+    const applied = applyDoneSet(doneList, index, total);
+    await this.app.fileManager.processFrontMatter(file, (data: Record<string, unknown>) => {
+      data["mt-review-done"] = applied.done;
+      data["mt-review-list"] = undefined; // 旧字段退役
+      data["status"] = applied.pageDone ? "mastered" : "pending";
+      data["updatedAt"] = new Date().toISOString();
+    });
+    return {
+      done: applied.pageDone,
+      doneCount: applied.done.length,
+      total,
+    };
+  }
+
+  /** 揭晓自动记录：完成集合中最小的未完成块。无未完成块返回 null。 */
+  async markNextUnreviewed(
+    file: TFile,
+    total: number,
+  ): Promise<{ done: boolean; doneCount: number; total: number } | null> {
+    const index = await this.firstUnreviewedIndex(file);
+    if (index === null) return null;
+    return this.markReviewedAt(file, index, total);
+  }
+
+  /** 完成集合里第一个未完成的块下标；全部完成返回 null。 */
+  private async firstUnreviewedIndex(file: TFile): Promise<number | null> {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const rawFm = cache?.frontmatter;
+    if (rawFm === undefined) return null;
+    const fm: Record<string, unknown> = rawFm;
+    const doneSet = new Set(
+      Array.isArray(fm["mt-review-done"])
+        ? fm["mt-review-done"].filter((x): x is number => typeof x === "number")
+        : Array.isArray(fm["mt-review-list"])
+          ? listToDoneSet(fm["mt-review-list"].filter((s): s is string => typeof s === "string"))
+          : [],
+    );
+    if (doneSet.size === 0) return 0;
+    for (let i = 0; i <= Math.max(...doneSet) + 1; i++) {
+      if (!doneSet.has(i)) return i;
+    }
+    return null;
+  }
+
+  /** 仪表盘整页状态切换：重置为待复习时清空完成集合（与块级完成保持一致）。 */
+  async updateStatus(
+    file: TFile,
+    status: "pending" | "reviewing" | "mastered" | "archived",
+  ): Promise<void> {
+    await this.app.fileManager.processFrontMatter(file, (data: Record<string, unknown>) => {
+      data["status"] = status;
+      if (status === "pending") {
+        data["mt-review-done"] = [];
+        data["mt-review-list"] = undefined;
+      }
+      data["updatedAt"] = new Date().toISOString();
+    });
   }
 
   /** 在活动标签页中打开指定路径的笔记。 */

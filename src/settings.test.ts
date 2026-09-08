@@ -43,6 +43,14 @@ describe("normalizeSettings", () => {
     );
   });
 
+  it("simplifiedMode 只接受布尔值（兼容旧键名 simplifiedDashboard）", () => {
+    expect(normalizeSettings({ simplifiedMode: true }).simplifiedMode).toBe(true);
+    expect(normalizeSettings({ simplifiedDashboard: true }).simplifiedMode).toBe(true);
+    expect(normalizeSettings({ simplifiedMode: "x" }).simplifiedMode).toBe(
+      DEFAULT_SETTINGS.simplifiedMode,
+    );
+  });
+
   it("language 只接受 auto/zh/en", () => {
     expect(normalizeSettings({ language: "en" }).language).toBe("en");
     expect(normalizeSettings({ language: "fr" }).language).toBe(DEFAULT_SETTINGS.language);

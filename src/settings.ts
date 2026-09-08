@@ -38,6 +38,10 @@ export interface MistakeSettings {
   hideMistakeProperties: boolean;
   /** 界面语言：auto=跟随 Obsidian；zh/en=手动指定。 */
   language: LanguagePref;
+  /** 点击揭晓后自动记录一次复习（状态推进一格）。 */
+  autoReviewOnReveal: boolean;
+  /** 简化模式：仪表盘只留统计与录入活跃；同时隐藏复习功能（笔记内完成块、揭晓自动记录）。 */
+  simplifiedMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: MistakeSettings = {
@@ -54,6 +58,8 @@ export const DEFAULT_SETTINGS: MistakeSettings = {
   autoQuestionEmphasis: true,
   hideMistakeProperties: true,
   language: "auto",
+  autoReviewOnReveal: true,
+  simplifiedMode: false,
 };
 
 /** 与磁盘上的旧/损坏配置合并，逐字段回退默认值（绝不抛错）。 */
@@ -103,6 +109,15 @@ export function normalizeSettings(raw: unknown): MistakeSettings {
         ? o["hideMistakeProperties"]
         : d.hideMistakeProperties,
     language: o["language"] === "zh" || o["language"] === "en" ? o["language"] : d.language,
+    autoReviewOnReveal:
+      typeof o["autoReviewOnReveal"] === "boolean" ? o["autoReviewOnReveal"] : d.autoReviewOnReveal,
+    // 兼容旧键名 simplifiedDashboard（1.0.4 早期未发布版本）
+    simplifiedMode:
+      typeof o["simplifiedMode"] === "boolean"
+        ? o["simplifiedMode"]
+        : typeof o["simplifiedDashboard"] === "boolean"
+          ? o["simplifiedDashboard"]
+          : d.simplifiedMode,
   };
 }
 
